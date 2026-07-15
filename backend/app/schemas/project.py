@@ -35,3 +35,27 @@ class ProjectRead(ProjectCreate):
   is_active: bool
   created_at: datetime
   updated_at: datetime
+
+
+class ProjectMemberCreate(BaseModel):
+  operator_id: int = Field(gt=0)
+  role: str = Field(pattern='^(OWNER|ADMIN|APPROVER|TESTER|VIEWER)$')
+
+
+class ProjectMemberUpdate(BaseModel):
+  role: str | None = Field(default=None, pattern='^(OWNER|ADMIN|APPROVER|TESTER|VIEWER)$')
+  status: str | None = Field(default=None, pattern='^(ACTIVE|INACTIVE)$')
+
+
+class ProjectMemberRead(BaseModel):
+  model_config = ConfigDict(from_attributes=True)
+
+  id: int
+  project_id: int
+  operator_id: int
+  role: str
+  status: str
+  joined_at: datetime
+  created_at: datetime
+  updated_at: datetime
+  deactivated_at: datetime | None

@@ -36,6 +36,7 @@ from app.services.automated_execution import (
   progress,
   recover_stale_jobs,
 )
+from app.services.project_access import ProjectAccessService, ProjectAction
 
 router = APIRouter(tags=['automated-execution'], dependencies=[Depends(get_auth_context)])
 
@@ -48,7 +49,7 @@ def _can_review(context: AuthContext) -> bool:
   return context.operator.role in {'APPROVER', 'ADMIN'}
 
 
-def _get_run(db: Session, run_id: int) -> AutomatedRun:
+def _get_run(db: Session, run_id: int, context: AuthContext | None = None, action: ProjectAction = ProjectAction.READ) -> AutomatedRun:
   run = db.scalar(select(AutomatedRun).options(selectinload(AutomatedRun.cases), selectinload(AutomatedRun.jobs)).where(AutomatedRun.id == run_id))
   if run is None:
     raise HTTPException(status_code=404, detail='Automated run not found.')
@@ -68,9 +69,10 @@ def _page(limit: int, offset: int, total: int) -> Page:
 
 
 @router.get('/automated-runs', response_model=AutomatedRunList)
-def list_automated_runs(status: str | None = None, limit: int = Query(50, ge=1, le=200), offset: int = Query(0, ge=0), db: Session = Depends(get_db)):
-  statement = select(AutomatedRun)
-  count_statement = select(func.count(AutomatedRun.id))
+def list_automated_runs(status: str | None = None, limit: int = Query(50, ge=1, le=200), offset: int = Query(0, ge=0), context: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)):
+  project_ids = ProjectAccessService(db, context.operator.id).project_ids()
+  statement = select(AutomatedRun).where(AutomatedRun.project_id.in_(project_ids))
+  count_statement = select(func.count(AutomatedRun.id)).where(AutomatedRun.project_id.in_(project_ids))
   if status:
     statement = statement.where(AutomatedRun.status == status.upper())
     count_statement = count_statement.where(AutomatedRun.status == status.upper())
@@ -101,6 +103,7 @@ def create_automated_run(payload: AutomatedRunCreate, context: AuthContext = Dep
   if not _can_author(context):
     raise HTTPException(status_code=403, detail='You do not have permission to perform this action.')
   target = _get_target(db, payload.target_id)
+  ProjectAccessService(db, context.operator.id).require(target.project_id, ProjectAction.TEST)
   run = create_run(db, target, payload.name, payload.description, payload.case_ids, payload.timeout_seconds, payload.max_retries, context.operator.id, payload.runtime_secret_required)
   append_event(db, 'automated_run_created', operator_id=context.operator.id, resource_type='AUTOMATED_RUN', resource_id=str(run.id), metadata={'run_key': run.run_key})
   db.commit()
@@ -108,13 +111,13 @@ def create_automated_run(payload: AutomatedRunCreate, context: AuthContext = Dep
 
 
 @router.get('/automated-runs/{run_id}', response_model=AutomatedRunRead)
-def get_automated_run(run_id: int, db: Session = Depends(get_db)):
-  return _get_run(db, run_id)
+def get_automated_run(run_id: int, context: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)):
+  return _get_run(db, run_id, context)
 
 
 @router.get('/automated-runs/{run_id}/preflight', response_model=ExecutionPreflightRead)
-def get_automated_run_preflight(run_id: int, db: Session = Depends(get_db)):
-  run = _get_run(db, run_id)
+def get_automated_run_preflight(run_id: int, context: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)):
+  run = _get_run(db, run_id, context)
   result = preflight_run(db, run, require_worker=True)
   db.commit()
   return result
@@ -122,7 +125,7 @@ def get_automated_run_preflight(run_id: int, db: Session = Depends(get_db)):
 
 @router.post('/automated-runs/{run_id}/submit', response_model=AutomatedRunRead)
 def submit_automated_run(run_id: int, context: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)):
-  run = _get_run(db, run_id)
+  run = _get_run(db, run_id, context, ProjectAction.TEST)
   if run.status != 'DRAFT':
     raise HTTPException(status_code=409, detail='Only draft automated runs can be submitted.')
   if context.operator.role != 'ADMIN' and run.created_by != context.operator.id:
@@ -138,7 +141,7 @@ def submit_automated_run(run_id: int, context: AuthContext = Depends(require_csr
 def approve_automated_run(run_id: int, context: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)):
   if not _can_review(context):
     raise HTTPException(status_code=403, detail='You do not have permission to perform this action.')
-  run = _get_run(db, run_id)
+  run = _get_run(db, run_id, context, ProjectAction.APPROVE)
   if run.status != 'SUBMITTED':
     raise HTTPException(status_code=409, detail='Only submitted automated runs can be approved.')
   if run.created_by == context.operator.id:
@@ -163,7 +166,7 @@ def queue_automated_run(run_id: int, context: AuthContext = Depends(require_csrf
   if not _can_review(context):
     raise HTTPException(status_code=403, detail='You do not have permission to perform this action.')
   recover_stale_jobs(db)
-  run = _get_run(db, run_id)
+  run = _get_run(db, run_id, context, ProjectAction.APPROVE)
   if run.status != 'APPROVED':
     raise HTTPException(status_code=409, detail='Only approved automated runs can be queued.')
   target = _get_target(db, run.target_id)
@@ -173,7 +176,7 @@ def queue_automated_run(run_id: int, context: AuthContext = Depends(require_csrf
   if preflight['status'] != 'PASS':
     raise HTTPException(status_code=409, detail='Stage 11 preflight failed before queueing.')
   run.status = 'QUEUED'; run.queued_by = context.operator.id; run.queued_at = datetime.utcnow()
-  db.add(ExecutionJob(run_id=run.id, status='QUEUED'))
+  db.add(ExecutionJob(project_id=run.project_id, run_id=run.id, status='QUEUED'))
   try:
     db.flush()
   except IntegrityError:
@@ -189,7 +192,7 @@ def queue_automated_run(run_id: int, context: AuthContext = Depends(require_csrf
 def cancel_automated_run(run_id: int, context: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)):
   if context.operator.role not in {'TESTER', 'APPROVER', 'ADMIN'}:
     raise HTTPException(status_code=403, detail='You do not have permission to perform this action.')
-  run = _get_run(db, run_id)
+  run = _get_run(db, run_id, context, ProjectAction.TEST)
   if run.status in {'PASSED', 'FAILED', 'CANCELLED', 'TIMED_OUT', 'BLOCKED'}:
     raise HTTPException(status_code=409, detail='Terminal automated runs cannot be cancelled.')
   run.status = 'CANCELLED'; run.cancelled_by = context.operator.id; run.cancelled_at = datetime.utcnow(); run.completed_at = datetime.utcnow(); run.failure_classification = 'CANCELLED'; run.safe_error_message = 'Automated run was cancelled.'
@@ -206,7 +209,7 @@ def cancel_automated_run(run_id: int, context: AuthContext = Depends(require_csr
 def retry_automated_run(run_id: int, context: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)):
   if not _can_review(context):
     raise HTTPException(status_code=403, detail='You do not have permission to perform this action.')
-  run = _get_run(db, run_id)
+  run = _get_run(db, run_id, context, ProjectAction.APPROVE)
   if run.status not in {'FAILED', 'TIMED_OUT', 'BLOCKED'}:
     raise HTTPException(status_code=409, detail='Only failed, blocked, or timed-out automated runs can be retried.')
   if run.attempt_count > run.max_retries:
@@ -216,7 +219,7 @@ def retry_automated_run(run_id: int, context: AuthContext = Depends(require_csrf
     run_case.status = 'NOT_RUN'; run_case.failure_classification = None; run_case.safe_error_message = None; run_case.started_at = None; run_case.completed_at = None
   job = run.jobs[0] if run.jobs else None
   if job is None:
-    job = ExecutionJob(run_id=run.id)
+    job = ExecutionJob(project_id=run.project_id, run_id=run.id)
     db.add(job)
   job.status = 'QUEUED'; job.lease_owner = None; job.lease_expires_at = None
   add_event(db, run.id, 'automated_run_retry_queued')
@@ -226,26 +229,26 @@ def retry_automated_run(run_id: int, context: AuthContext = Depends(require_csrf
 
 
 @router.get('/automated-runs/{run_id}/cases', response_model=list[AutomatedRunCaseRead])
-def list_run_cases(run_id: int, db: Session = Depends(get_db)):
-  _get_run(db, run_id)
+def list_run_cases(run_id: int, context: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)):
+  _get_run(db, run_id, context)
   return list(db.scalars(select(AutomatedRunCase).where(AutomatedRunCase.run_id == run_id).order_by(AutomatedRunCase.sort_order)))
 
 
 @router.get('/automated-runs/{run_id}/steps', response_model=list[AutomatedStepResultRead])
-def list_run_steps(run_id: int, db: Session = Depends(get_db)):
-  _get_run(db, run_id)
+def list_run_steps(run_id: int, context: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)):
+  _get_run(db, run_id, context)
   return list(db.scalars(select(AutomatedStepResult).join(AutomatedRunCase).where(AutomatedRunCase.run_id == run_id).order_by(AutomatedRunCase.sort_order, AutomatedStepResult.step_number)))
 
 
 @router.get('/automated-runs/{run_id}/events', response_model=list[ExecutionEventRead])
-def list_run_events(run_id: int, db: Session = Depends(get_db)):
-  _get_run(db, run_id)
+def list_run_events(run_id: int, context: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)):
+  _get_run(db, run_id, context)
   return list(db.scalars(select(ExecutionEvent).where(ExecutionEvent.run_id == run_id).order_by(ExecutionEvent.created_at)))
 
 
 @router.get('/automated-runs/{run_id}/artifacts', response_model=list[ExecutionArtifactRead])
-def list_run_artifacts(run_id: int, db: Session = Depends(get_db)):
-  _get_run(db, run_id)
+def list_run_artifacts(run_id: int, context: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)):
+  _get_run(db, run_id, context)
   return list(db.scalars(select(ExecutionArtifact).where(ExecutionArtifact.run_id == run_id).order_by(ExecutionArtifact.created_at.desc())))
 
 
@@ -254,6 +257,7 @@ def download_execution_artifact(artifact_id: int, context: AuthContext = Depends
   item = db.get(ExecutionArtifact, artifact_id)
   if item is None or not item.safe:
     raise HTTPException(status_code=404, detail='Artifact not found.')
+  ProjectAccessService(db, context.operator.id).require(item.project_id)
   path = artifact_path(item)
   if not path.is_file():
     raise HTTPException(status_code=404, detail='Artifact file is unavailable.')
@@ -284,3 +288,6 @@ def run_next_worker_job(payload: WorkerHeartbeat, context: AuthContext = Depends
   append_event(db, 'execution_worker_run_next', operator_id=context.operator.id, resource_type='EXECUTION_WORKER', resource_id=payload.worker_key, metadata={'run_id': run.id if run else None})
   db.commit()
   return _get_run(db, run.id) if run else None
+  if context is not None:
+    ProjectAccessService(db, context.operator.id).require(run.project_id, action)
+  ProjectAccessService(db, context.operator.id).require(item.project_id)

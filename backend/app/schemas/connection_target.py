@@ -58,6 +58,7 @@ def _strip_required(value: str) -> str:
 
 
 class ConnectionTargetCreate(BaseModel):
+  project_id: int | None = Field(default=None, gt=0)
   target_key: str = Field(min_length=2, max_length=60)
   name: str = Field(min_length=1, max_length=180)
   description: str | None = Field(default=None, max_length=2000)
@@ -121,6 +122,7 @@ class CredentialProfileUpdate(BaseModel):
 class ConnectionTargetRead(BaseModel):
   model_config = ConfigDict(from_attributes=True)
   id: int
+  project_id: int
   target_key: str
   name: str
   description: str | None

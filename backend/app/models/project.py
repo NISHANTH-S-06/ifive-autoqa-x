@@ -20,3 +20,4 @@ class Project(Base):
   updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
   test_runs: Mapped[list['TestRun']] = relationship(back_populates='project')
+  members: Mapped[list['ProjectMember']] = relationship(back_populates='project')

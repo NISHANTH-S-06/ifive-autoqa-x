@@ -64,6 +64,7 @@ class Page(BaseModel):
 
 
 class TestProjectCreate(BaseModel):
+  access_project_id: int | None = Field(default=None, gt=0)
   name: str = Field(min_length=1, max_length=160)
   code: str = Field(min_length=2, max_length=40)
   description: str | None = Field(default=None, max_length=2000)
@@ -85,6 +86,7 @@ class TestProjectUpdate(BaseModel):
 class TestProjectRead(BaseModel):
   model_config = ConfigDict(from_attributes=True)
   id: int
+  access_project_id: int
   name: str
   code: str
   description: str | None

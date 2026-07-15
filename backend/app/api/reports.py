@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.auth import AuthContext, get_auth_context, require_csrf
 from app.database import get_db
 from app.models.reporting import ReportDefinition, ReportExport
+from app.models.test_management import TestProject
 from app.schemas.test_management import Page
 from app.services.audit_service import append_event
 from app.services.report_service import (
@@ -22,11 +23,13 @@ from app.services.report_service import (
   public_filters,
   report_payload,
 )
+from app.services.project_access import ProjectAccessService, ProjectAction
 
 router = APIRouter(tags=['reports'], dependencies=[Depends(get_auth_context)])
 
 
 class ReportExportCreate(BaseModel):
+  project_id: int | None = Field(default=None, gt=0)
   report_type: str = Field(max_length=40)
   export_format: str = Field(default='csv', max_length=10)
   filters: dict = Field(default_factory=dict)
@@ -49,6 +52,7 @@ class ReportExportCreate(BaseModel):
 
 
 class ReportDefinitionCreate(BaseModel):
+  project_id: int | None = Field(default=None, gt=0)
   name: str = Field(min_length=1, max_length=160)
   report_type: str = Field(max_length=40)
   filters: dict = Field(default_factory=dict)
@@ -113,8 +117,10 @@ def _filters(
   date_range: str = 'last_30_days',
   start_date: str | None = None,
   end_date: str | None = None,
+  context: AuthContext = Depends(get_auth_context),
+  db: Session = Depends(get_db),
 ) -> dict:
-  return parse_filters({
+  filters = parse_filters({
     'project_id': project_id,
     'module_id': module_id,
     'suite_id': suite_id,
@@ -131,11 +137,22 @@ def _filters(
     'start_date': start_date,
     'end_date': end_date,
   })
+  access = ProjectAccessService(db, context.operator.id)
+  if project_id is not None:
+    test_project = db.get(TestProject, project_id)
+    if test_project is None:
+      raise HTTPException(status_code=404, detail='Project not found.')
+    access.require(test_project.access_project_id)
+    filters['access_project_ids'] = (test_project.access_project_id,)
+  else:
+    filters['access_project_ids'] = access.project_ids()
+  return filters
 
 
 def _export_read(item: ReportExport) -> dict:
   return {
     'id': item.id,
+    'project_id': item.project_id,
     'export_key': item.export_key,
     'report_type': item.report_type,
     'export_format': item.export_format,
@@ -153,6 +170,7 @@ def _export_read(item: ReportExport) -> dict:
 def _definition_read(item: ReportDefinition) -> dict:
   return {
     'id': item.id,
+    'project_id': item.project_id,
     'name': item.name,
     'report_type': item.report_type,
     'filters': json.loads(item.filters_json or '{}'),
@@ -173,12 +191,13 @@ def _require_admin(context: AuthContext) -> None:
 
 
 @router.get('/reports/summary')
-def report_metrics(db: Session = Depends(get_db)):
-  payload = report_payload(db, 'dashboard', parse_filters({'date_range': 'last_30_days'}))
+def report_metrics(context: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)):
+  filters = parse_filters({'date_range': 'last_30_days'}); filters['access_project_ids'] = ProjectAccessService(db, context.operator.id).project_ids()
+  payload = report_payload(db, 'dashboard', filters)
   summary = payload['summary']
   return [
     {'label': 'Total Tests', 'value': str(summary['result_counts'].get('PASSED', 0) + summary['result_counts'].get('FAILED', 0) + summary['result_counts'].get('BLOCKED', 0) + summary['result_counts'].get('SKIPPED', 0))},
-    {'label': 'Pass Rate', 'value': f"{report_payload(db, 'quality', parse_filters({'date_range': 'last_30_days'}))['pass_percentage']}%"},
+    {'label': 'Pass Rate', 'value': f"{report_payload(db, 'quality', filters)['pass_percentage']}%"},
     {'label': 'Open Defects', 'value': str(summary['open_defects'])},
   ]
 
@@ -227,15 +246,18 @@ def get_workers_report(db: Session = Depends(get_db)):
 def create_report_export(payload: ReportExportCreate, context: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)):
   _require_admin(context)
   filters = parse_filters(payload.filters)
-  item = export_report(db, payload.report_type, payload.export_format, filters, context.operator.id)
+  project_id = ProjectAccessService(db, context.operator.id).resolve(payload.project_id, ProjectAction.MANAGE)
+  filters['access_project_ids'] = (project_id,)
+  item = export_report(db, payload.report_type, payload.export_format, filters, context.operator.id, project_id)
   append_event(db, 'report_export_created', operator_id=context.operator.id, resource_type='REPORT_EXPORT', resource_id=str(item.id), metadata={'report_type': item.report_type, 'format': item.export_format, 'rows': item.row_count})
   db.commit(); db.refresh(item); return _export_read(item)
 
 
 @router.get('/reports/exports')
 def list_report_exports(context: AuthContext = Depends(get_auth_context), limit: int = Query(50, ge=1, le=100), offset: int = Query(0, ge=0), db: Session = Depends(get_db)):
-  statement = select(ReportExport).where(ReportExport.deleted_at.is_(None))
-  count_statement = select(ReportExport.id).where(ReportExport.deleted_at.is_(None))
+  project_ids = ProjectAccessService(db, context.operator.id).project_ids()
+  statement = select(ReportExport).where(ReportExport.deleted_at.is_(None), ReportExport.project_id.in_(project_ids))
+  count_statement = select(ReportExport.id).where(ReportExport.deleted_at.is_(None), ReportExport.project_id.in_(project_ids))
   if context.operator.role != 'ADMIN':
     statement = statement.where(ReportExport.created_by == context.operator.id)
     count_statement = count_statement.where(ReportExport.created_by == context.operator.id)
@@ -249,6 +271,7 @@ def download_report_export(export_id: int, context: AuthContext = Depends(get_au
   item = db.get(ReportExport, export_id)
   if item is None or item.deleted_at is not None:
     raise HTTPException(status_code=404, detail='Report export not found.')
+  ProjectAccessService(db, context.operator.id).require(item.project_id)
   if context.operator.role != 'ADMIN' and item.created_by != context.operator.id:
     raise HTTPException(status_code=403, detail='You do not have permission to perform this action.')
   path = export_path(item)
@@ -262,14 +285,16 @@ def download_report_export(export_id: int, context: AuthContext = Depends(get_au
 @router.get('/report-definitions')
 def list_report_definitions(context: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)):
   _require_admin(context)
-  return [_definition_read(item) for item in db.scalars(select(ReportDefinition).order_by(ReportDefinition.created_at.desc()))]
+  project_ids = ProjectAccessService(db, context.operator.id).project_ids(ProjectAction.MANAGE)
+  return [_definition_read(item) for item in db.scalars(select(ReportDefinition).where(ReportDefinition.project_id.in_(project_ids)).order_by(ReportDefinition.created_at.desc()))]
 
 
 @router.post('/report-definitions', status_code=201)
 def create_report_definition(payload: ReportDefinitionCreate, context: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)):
   _require_admin(context)
+  project_id = ProjectAccessService(db, context.operator.id).resolve(payload.project_id, ProjectAction.MANAGE)
   filters = parse_filters(payload.filters)
-  item = ReportDefinition(name=payload.name, report_type=payload.report_type, filters_json=json.dumps(public_filters(filters), sort_keys=True, separators=(',', ':')), frequency=payload.frequency, enabled=payload.enabled, owner_operator_id=context.operator.id, next_run_at=next_run_at(payload.frequency))
+  item = ReportDefinition(project_id=project_id, name=payload.name, report_type=payload.report_type, filters_json=json.dumps(public_filters(filters), sort_keys=True, separators=(',', ':')), frequency=payload.frequency, enabled=payload.enabled, owner_operator_id=context.operator.id, next_run_at=next_run_at(payload.frequency))
   db.add(item)
   append_event(db, 'report_definition_created', operator_id=context.operator.id, resource_type='REPORT_DEFINITION', metadata={'report_type': item.report_type, 'frequency': item.frequency})
   db.commit(); db.refresh(item); return _definition_read(item)
@@ -281,6 +306,7 @@ def patch_report_definition(definition_id: int, payload: ReportDefinitionPatch, 
   item = db.get(ReportDefinition, definition_id)
   if item is None:
     raise HTTPException(status_code=404, detail='Report definition not found.')
+  ProjectAccessService(db, context.operator.id).require(item.project_id, ProjectAction.MANAGE)
   if payload.name is not None:
     item.name = payload.name.strip()
   if payload.filters is not None:
@@ -301,11 +327,13 @@ def run_report_definition(definition_id: int, context: AuthContext = Depends(req
   item = db.get(ReportDefinition, definition_id)
   if item is None:
     raise HTTPException(status_code=404, detail='Report definition not found.')
+  ProjectAccessService(db, context.operator.id).require(item.project_id, ProjectAction.MANAGE)
   if not item.enabled:
     raise HTTPException(status_code=409, detail='Report definition is disabled.')
   try:
     filters = parse_filters(json.loads(item.filters_json or '{}'))
-    export = export_report(db, item.report_type, 'csv', filters, context.operator.id)
+    filters['access_project_ids'] = (item.project_id,)
+    export = export_report(db, item.report_type, 'csv', filters, context.operator.id, item.project_id)
     item.last_run_at = datetime.utcnow()
     item.next_run_at = next_run_at(item.frequency, item.last_run_at)
     item.last_error = None
@@ -323,6 +351,7 @@ def disable_report_definition(definition_id: int, context: AuthContext = Depends
   item = db.get(ReportDefinition, definition_id)
   if item is None:
     raise HTTPException(status_code=404, detail='Report definition not found.')
+  ProjectAccessService(db, context.operator.id).require(item.project_id, ProjectAction.MANAGE)
   item.enabled = False
   item.updated_at = datetime.utcnow()
   append_event(db, 'report_definition_disabled', operator_id=context.operator.id, resource_type='REPORT_DEFINITION', resource_id=str(item.id))

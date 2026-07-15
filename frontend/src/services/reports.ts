@@ -21,10 +21,10 @@ export const fetchQualityReport = (filters: ReportFilters = {}) => apiGet<Qualit
 export const fetchTraceabilityReport = (filters: ReportFilters = {}) => apiGet<{ items: Array<Record<string, unknown>> }>(`/api/reports/traceability${query(filters)}`);
 export const fetchTargetReport = (filters: ReportFilters = {}) => apiGet<Record<string, unknown>>(`/api/reports/targets${query(filters)}`);
 export const fetchWorkerReport = () => apiGet<Record<string, unknown>>('/api/reports/workers');
-export const createReportExport = (report_type: string, export_format: string, filters: ReportFilters) => apiMutation<ReportExport>('POST', '/api/reports/export', { report_type, export_format, filters });
+export const createReportExport = (project_id: number, report_type: string, export_format: string, filters: ReportFilters) => apiMutation<ReportExport>('POST', '/api/reports/export', { project_id, report_type, export_format, filters });
 export const fetchReportExports = () => apiGet<{ items: ReportExport[] }>('/api/reports/exports');
 export const reportExportDownloadUrl = (id: number) => apiUrl(`/api/reports/exports/${id}/download`);
 export const fetchReportDefinitions = () => apiGet<ReportDefinition[]>('/api/report-definitions');
-export const createReportDefinition = (value: { name: string; report_type: string; frequency: string; filters: ReportFilters }) => apiMutation<ReportDefinition>('POST', '/api/report-definitions', value);
+export const createReportDefinition = (value: { project_id: number; name: string; report_type: string; frequency: string; filters: ReportFilters }) => apiMutation<ReportDefinition>('POST', '/api/report-definitions', value);
 export const runReportDefinition = (id: number) => apiMutation<ReportExport>('POST', `/api/report-definitions/${id}/run`, {});
 export const disableReportDefinition = (id: number) => apiMutation<ReportDefinition>('POST', `/api/report-definitions/${id}/disable`, {});

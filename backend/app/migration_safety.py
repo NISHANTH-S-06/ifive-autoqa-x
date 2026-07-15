@@ -9,12 +9,33 @@ from typing import Any
 from uuid import uuid4
 
 from alembic import command
+from alembic.migration import MigrationContext
+from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine, inspect
 
 from app.migration_config import make_alembic_config, sqlite_path_for_url, validate_migration_url
 
 
 BASELINE_REVISION = '20260715_01'
+PROJECT_ISOLATION_REVISION = '20260715_02'
+
+
+def assert_database_at_head(database_url: str, *, allow_active: bool = False) -> str:
+  """Fail closed when application startup is attempted before Alembic head."""
+  validated = validate_migration_url(database_url, allow_active=allow_active)
+  config = make_alembic_config(validated, allow_active=allow_active)
+  expected = ScriptDirectory.from_config(config).get_current_head()
+  engine = create_engine(validated)
+  try:
+    with engine.connect() as connection:
+      current = MigrationContext.configure(connection).get_current_revision()
+  finally:
+    engine.dispose()
+  if current != expected:
+    raise RuntimeError(
+      f'Database migration required before startup: current={current or "none"}, expected={expected}.'
+    )
+  return current
 
 
 @dataclass(frozen=True)
@@ -91,9 +112,14 @@ def schema_snapshot(database_url: str, *, allow_active: bool = False) -> dict[st
     engine.dispose()
 
 
-def assert_schema_matches(reference_url: str, candidate_url: str) -> None:
+def assert_schema_matches(
+  reference_url: str,
+  candidate_url: str,
+  *,
+  candidate_allow_active: bool = False,
+) -> None:
   reference = schema_snapshot(reference_url)
-  candidate = schema_snapshot(candidate_url)
+  candidate = schema_snapshot(candidate_url, allow_active=candidate_allow_active)
   if reference != candidate:
     reference_tables = set(reference['tables'])
     candidate_tables = set(candidate['tables'])
@@ -117,7 +143,12 @@ def database_health(database_url: str, *, allow_active: bool = False) -> Databas
     connection.close()
 
 
-def data_snapshot(database_url: str, *, allow_active: bool = False) -> dict[str, dict[str, Any]]:
+def data_snapshot(
+  database_url: str,
+  *,
+  allow_active: bool = False,
+  ignore_worker_heartbeat: bool = False,
+) -> dict[str, dict[str, Any]]:
   validated = validate_migration_url(database_url, allow_active=allow_active)
   path = sqlite_path_for_url(validated)
   connection = sqlite3.connect(path)
@@ -132,7 +163,10 @@ def data_snapshot(database_url: str, *, allow_active: bool = False) -> dict[str,
     for table_name in tables:
       quoted = '"' + table_name.replace('"', '""') + '"'
       columns = [row[1] for row in connection.execute(f'PRAGMA table_info({quoted})')]
-      rows = connection.execute(f'SELECT * FROM {quoted} ORDER BY rowid').fetchall()
+      if ignore_worker_heartbeat and table_name == 'execution_workers':
+        columns = [name for name in columns if name not in {'heartbeat_at', 'updated_at'}]
+      selected = ', '.join('"' + name.replace('"', '""') + '"' for name in columns)
+      rows = connection.execute(f'SELECT {selected} FROM {quoted} ORDER BY rowid').fetchall()
       encoded_rows = [
         [value.hex() if isinstance(value, bytes) else value for value in row]
         for row in rows
@@ -144,27 +178,40 @@ def data_snapshot(database_url: str, *, allow_active: bool = False) -> dict[str,
     connection.close()
 
 
-def stamp_existing_database(database_url: str, reference_directory: Path) -> StampResult:
+def stamp_existing_database(
+  database_url: str,
+  reference_directory: Path,
+  *,
+  allow_active: bool = False,
+) -> StampResult:
   """Schema-compare and stamp an existing copied SQLite database without data changes."""
-  validated = validate_migration_url(database_url)
-  before_health = database_health(validated)
+  validated = validate_migration_url(database_url, allow_active=allow_active)
+  before_health = database_health(validated, allow_active=allow_active)
   if before_health.integrity != 'ok' or before_health.foreign_key_violations:
     raise RuntimeError(f'Existing database health check failed: {before_health}.')
-  before_schema = schema_snapshot(validated)
-  before_data = data_snapshot(validated)
+  before_schema = schema_snapshot(validated, allow_active=allow_active)
+  before_data = data_snapshot(
+    validated,
+    allow_active=allow_active,
+    ignore_worker_heartbeat=allow_active,
+  )
 
   reference_directory.mkdir(parents=True, exist_ok=True)
   reference_path = reference_directory / f'alembic-baseline-reference-{uuid4().hex}.db'
   reference_url = f'sqlite:///{reference_path.as_posix()}'
   try:
-    command.upgrade(make_alembic_config(reference_url), 'head')
-    assert_schema_matches(reference_url, validated)
-    command.stamp(make_alembic_config(validated), BASELINE_REVISION)
-    command.upgrade(make_alembic_config(validated), 'head')
+    command.upgrade(make_alembic_config(reference_url), BASELINE_REVISION)
+    assert_schema_matches(reference_url, validated, candidate_allow_active=allow_active)
+    command.stamp(make_alembic_config(validated, allow_active=allow_active), BASELINE_REVISION)
+    command.upgrade(make_alembic_config(validated, allow_active=allow_active), BASELINE_REVISION)
 
-    after_schema = schema_snapshot(validated)
-    after_data = data_snapshot(validated)
-    after_health = database_health(validated)
+    after_schema = schema_snapshot(validated, allow_active=allow_active)
+    after_data = data_snapshot(
+      validated,
+      allow_active=allow_active,
+      ignore_worker_heartbeat=allow_active,
+    )
+    after_health = database_health(validated, allow_active=allow_active)
     if before_schema != after_schema:
       raise RuntimeError('Stamping changed the existing business schema.')
     if before_data != after_data:

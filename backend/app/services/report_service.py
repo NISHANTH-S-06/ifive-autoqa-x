@@ -119,7 +119,12 @@ def parse_filters(raw: dict | None) -> dict:
 
 
 def public_filters(filters: dict) -> dict:
-  return {key: (value.isoformat() if isinstance(value, datetime) else value) for key, value in filters.items()}
+  return {key: (value.isoformat() if isinstance(value, datetime) else value) for key, value in filters.items() if key != 'access_project_ids'}
+
+
+def _access_scope(filters: dict, column):
+  project_ids = filters.get('access_project_ids')
+  return [column.in_(project_ids)] if project_ids is not None else []
 
 
 def _between(column, filters):
@@ -127,7 +132,7 @@ def _between(column, filters):
 
 
 def _manual_case_filters(filters):
-  conditions = []
+  conditions = _access_scope(filters, ManualTestRun.access_project_id)
   if 'project_id' in filters:
     conditions.append(ManualTestRun.project_id == filters['project_id'])
   if 'suite_id' in filters:
@@ -142,7 +147,7 @@ def _manual_case_filters(filters):
 
 
 def _automated_case_filters(filters):
-  conditions = []
+  conditions = _access_scope(filters, AutomatedRun.project_id)
   if 'test_case_id' in filters:
     conditions.append(AutomatedRunCase.test_case_id == filters['test_case_id'])
   if 'target_id' in filters:
@@ -153,7 +158,7 @@ def _automated_case_filters(filters):
 
 
 def _defect_filters(filters):
-  conditions = []
+  conditions = _access_scope(filters, Defect.access_project_id)
   for key, column in [('project_id', Defect.project_id), ('module_id', Defect.module_id), ('suite_id', Defect.suite_id), ('test_case_id', Defect.test_case_id), ('assignee_id', Defect.assigned_to), ('target_id', Defect.target_id)]:
     if key in filters:
       conditions.append(column == filters[key])
@@ -202,15 +207,15 @@ def dashboard_report(db: Session, filters: dict) -> dict:
   automated_case_counts = automated_case_statuses(db, automated_conditions)
   result_counts = {status: manual_case_counts.get(status, 0) + automated_case_counts.get(status, 0) for status in sorted(VALID_RESULT_STATUSES | {'PASSED', 'FAILED', 'BLOCKED', 'SKIPPED'})}
   defect_statuses = count_statuses(db, Defect, Defect.status, defect_conditions)
-  target_statuses = count_statuses(db, ConnectionCheck, ConnectionCheck.status, list(_between(ConnectionCheck.created_at, filters)))
+  target_statuses = count_statuses(db, ConnectionCheck, ConnectionCheck.status, [*_between(ConnectionCheck.created_at, filters), *_access_scope(filters, ConnectionCheck.project_id)])
   worker_statuses = count_statuses(db, ExecutionWorker, ExecutionWorker.status, [])
-  total_cases = db.scalar(select(func.count(ManagedTestCase.id)).where(ManagedTestCase.status == 'ACTIVE')) or 0
-  approved_cases = db.scalar(select(func.count(ManagedTestCase.id)).where(ManagedTestCase.lifecycle_state == 'APPROVED', ManagedTestCase.status == 'ACTIVE')) or 0
+  total_cases = db.scalar(select(func.count(ManagedTestCase.id)).where(ManagedTestCase.status == 'ACTIVE', *_access_scope(filters, ManagedTestCase.access_project_id))) or 0
+  approved_cases = db.scalar(select(func.count(ManagedTestCase.id)).where(ManagedTestCase.lifecycle_state == 'APPROVED', ManagedTestCase.status == 'ACTIVE', *_access_scope(filters, ManagedTestCase.access_project_id))) or 0
   recent = recent_activity(db, filters)
   return {
     'filters': public_filters(filters),
     'summary': {
-      'test_projects': db.scalar(select(func.count(TestProject.id)).where(TestProject.status == 'ACTIVE')) or 0,
+      'test_projects': db.scalar(select(func.count(TestProject.id)).where(TestProject.status == 'ACTIVE', *_access_scope(filters, TestProject.access_project_id))) or 0,
       'test_cases': total_cases,
       'approved_test_cases': approved_cases,
       'manual_runs': manual_runs,
@@ -220,7 +225,7 @@ def dashboard_report(db: Session, filters: dict) -> dict:
       'open_defects': sum(count for status, count in defect_statuses.items() if status not in {'CLOSED', 'REJECTED', 'DUPLICATE'}),
       'closed_defects': defect_statuses.get('CLOSED', 0),
       'duplicate_defects': defect_statuses.get('DUPLICATE', 0),
-      'retest_results': count_statuses(db, DefectRetest, DefectRetest.result_status, list(_between(DefectRetest.created_at, filters))),
+      'retest_results': count_statuses(db, DefectRetest, DefectRetest.result_status, [*_between(DefectRetest.created_at, filters), *_access_scope(filters, DefectRetest.project_id)]),
       'target_health': target_statuses,
       'worker_status': worker_statuses,
     },
@@ -238,7 +243,7 @@ def execution_report(db: Session, filters: dict) -> dict:
   manual_status = manual_case_statuses(db, manual_conditions)
   automated_status = automated_case_statuses(db, automated_conditions)
   failure_categories = dict(db.execute(select(AutomatedRun.failure_classification, func.count(AutomatedRun.id)).where(*automated_conditions).group_by(AutomatedRun.failure_classification)).all())
-  project_rows = db.execute(select(TestProject.id, TestProject.code, func.count(func.distinct(ManualTestRun.id))).join(ManualTestRun, ManualTestRun.project_id == TestProject.id, isouter=True).group_by(TestProject.id, TestProject.code).limit(100)).all()
+  project_rows = db.execute(select(TestProject.id, TestProject.code, func.count(func.distinct(ManualTestRun.id))).join(ManualTestRun, ManualTestRun.project_id == TestProject.id, isouter=True).where(*_access_scope(filters, TestProject.access_project_id)).group_by(TestProject.id, TestProject.code).limit(100)).all()
   operator_rows = db.execute(select(Operator.id, Operator.username, func.count(ManualTestRunCase.id)).join(ManualTestRunCase, ManualTestRunCase.executed_by == Operator.id, isouter=True).group_by(Operator.id, Operator.username).limit(100)).all()
   env_rows = db.execute(select(AutomatedRun.target_origin, func.count(AutomatedRun.id)).where(*automated_conditions).group_by(AutomatedRun.target_origin).limit(100)).all()
   return {
@@ -266,7 +271,7 @@ def defect_report(db: Session, filters: dict) -> dict:
     'ageing': {'open_older_than_7_days': db.scalar(select(func.count(Defect.id)).where(Defect.status.not_in(['CLOSED', 'REJECTED', 'DUPLICATE']), Defect.created_at < now - timedelta(days=7), *conditions)) or 0},
     'reopened': db.scalar(select(func.count(Defect.id)).where(Defect.status == 'REOPENED', *conditions)) or 0,
     'duplicates': db.scalar(select(func.count(Defect.id)).where(Defect.status == 'DUPLICATE', *conditions)) or 0,
-    'retest_results': count_statuses(db, DefectRetest, DefectRetest.result_status, list(_between(DefectRetest.created_at, filters))),
+    'retest_results': count_statuses(db, DefectRetest, DefectRetest.result_status, [*_between(DefectRetest.created_at, filters), *_access_scope(filters, DefectRetest.project_id)]),
     'average_time_to_close_hours': round(sum(close_hours) / len(close_hours), 2) if close_hours else 0.0,
     'traceability': traceability_report(db, filters)['items'][:50],
   }
@@ -283,12 +288,12 @@ def trends_report(db: Session, filters: dict) -> dict:
       else:
         result.setdefault(day, {})[row[1] or 'UNKNOWN'] = row[2]
     return result
-  manual = bucket_rows(ManualTestRunCase, ManualTestRunCase.created_at, ManualTestRunCase.status, list(_between(ManualTestRunCase.created_at, filters)))
-  automated = bucket_rows(AutomatedRun, AutomatedRun.created_at, AutomatedRun.status, list(_between(AutomatedRun.created_at, filters)))
-  defects_created = bucket_rows(Defect, Defect.created_at, None, list(_between(Defect.created_at, filters)))
-  defects_closed = bucket_rows(Defect, Defect.closed_at, None, [Defect.closed_at.is_not(None), *_between(Defect.closed_at, filters)])
-  target_health = bucket_rows(ConnectionCheck, ConnectionCheck.created_at, ConnectionCheck.status, list(_between(ConnectionCheck.created_at, filters)))
-  durations = db.execute(select(func.date(AutomatedRun.created_at), func.avg(func.coalesce(AutomatedRun.completed_steps, 0))).where(*_between(AutomatedRun.created_at, filters)).group_by(func.date(AutomatedRun.created_at))).all()
+  manual = bucket_rows(ManualTestRunCase, ManualTestRunCase.created_at, ManualTestRunCase.status, [*_between(ManualTestRunCase.created_at, filters), *_access_scope(filters, ManualTestRunCase.access_project_id)])
+  automated = bucket_rows(AutomatedRun, AutomatedRun.created_at, AutomatedRun.status, [*_between(AutomatedRun.created_at, filters), *_access_scope(filters, AutomatedRun.project_id)])
+  defects_created = bucket_rows(Defect, Defect.created_at, None, [*_between(Defect.created_at, filters), *_access_scope(filters, Defect.access_project_id)])
+  defects_closed = bucket_rows(Defect, Defect.closed_at, None, [Defect.closed_at.is_not(None), *_between(Defect.closed_at, filters), *_access_scope(filters, Defect.access_project_id)])
+  target_health = bucket_rows(ConnectionCheck, ConnectionCheck.created_at, ConnectionCheck.status, [*_between(ConnectionCheck.created_at, filters), *_access_scope(filters, ConnectionCheck.project_id)])
+  durations = db.execute(select(func.date(AutomatedRun.created_at), func.avg(func.coalesce(AutomatedRun.completed_steps, 0))).where(*_between(AutomatedRun.created_at, filters), *_access_scope(filters, AutomatedRun.project_id)).group_by(func.date(AutomatedRun.created_at))).all()
   return {'filters': public_filters(filters), 'manual_execution': manual, 'automated_execution': automated, 'defects_created': defects_created, 'defects_closed': defects_closed, 'target_health': target_health, 'execution_duration_proxy': {day: round(value or 0, 2) for day, value in durations}}
 
 
@@ -301,7 +306,7 @@ def quality_report(db: Session, filters: dict) -> dict:
   passed = results.get('PASSED', 0)
   skipped = results.get('SKIPPED', 0)
   total_cases = dashboard['test_cases']
-  automated_case_count = db.scalar(select(func.count(func.distinct(AutomatedRunCase.test_case_id)))) or 0
+  automated_case_count = db.scalar(select(func.count(func.distinct(AutomatedRunCase.test_case_id))).where(*_access_scope(filters, AutomatedRunCase.project_id))) or 0
   retests = dashboard['retest_results']
   retest_total = sum(retests.values())
   duplicate_safe_defects = dashboard['defects'] - dashboard.get('duplicate_defects', 0)
@@ -344,12 +349,12 @@ def traceability_report(db: Session, filters: dict) -> dict:
 
 
 def target_report(db: Session, filters: dict) -> dict:
-  target_conditions = []
+  target_conditions = _access_scope(filters, ConnectionTarget.project_id)
   if 'target_id' in filters:
     target_conditions.append(ConnectionTarget.id == filters['target_id'])
   if 'environment' in filters:
     target_conditions.append(ConnectionTarget.environment_type == filters['environment'])
-  checks = count_statuses(db, ConnectionCheck, ConnectionCheck.status, list(_between(ConnectionCheck.created_at, filters)))
+  checks = count_statuses(db, ConnectionCheck, ConnectionCheck.status, [*_between(ConnectionCheck.created_at, filters), *_access_scope(filters, ConnectionCheck.project_id)])
   targets = db.execute(select(ConnectionTarget.id, ConnectionTarget.target_key, ConnectionTarget.environment_type, ConnectionTarget.lifecycle_state, ConnectionTarget.enabled, ConnectionTarget.execution_enabled, ConnectionTarget.last_check_status).where(*target_conditions).limit(100)).all()
   return {'filters': public_filters(filters), 'target_health': checks, 'targets': [{'id': row[0], 'target_key': row[1], 'environment_type': row[2], 'lifecycle_state': row[3], 'enabled': row[4], 'execution_enabled': row[5], 'last_check_status': row[6]} for row in targets]}
 
@@ -360,9 +365,9 @@ def worker_report(db: Session) -> dict:
 
 
 def recent_activity(db: Session, filters: dict) -> list[dict]:
-  manual = [{'type': 'manual_run', 'id': row.id, 'label': row.run_key, 'status': row.status, 'created_at': row.created_at.isoformat()} for row in db.scalars(select(ManualTestRun).where(*_between(ManualTestRun.created_at, filters)).order_by(ManualTestRun.created_at.desc()).limit(5))]
-  automated = [{'type': 'automated_run', 'id': row.id, 'label': row.run_key, 'status': row.status, 'created_at': row.created_at.isoformat()} for row in db.scalars(select(AutomatedRun).where(*_between(AutomatedRun.created_at, filters)).order_by(AutomatedRun.created_at.desc()).limit(5))]
-  defects = [{'type': 'defect', 'id': row.id, 'label': row.defect_key, 'status': row.status, 'created_at': row.created_at.isoformat()} for row in db.scalars(select(Defect).where(*_between(Defect.created_at, filters)).order_by(Defect.created_at.desc()).limit(5))]
+  manual = [{'type': 'manual_run', 'id': row.id, 'label': row.run_key, 'status': row.status, 'created_at': row.created_at.isoformat()} for row in db.scalars(select(ManualTestRun).where(*_between(ManualTestRun.created_at, filters), *_access_scope(filters, ManualTestRun.access_project_id)).order_by(ManualTestRun.created_at.desc()).limit(5))]
+  automated = [{'type': 'automated_run', 'id': row.id, 'label': row.run_key, 'status': row.status, 'created_at': row.created_at.isoformat()} for row in db.scalars(select(AutomatedRun).where(*_between(AutomatedRun.created_at, filters), *_access_scope(filters, AutomatedRun.project_id)).order_by(AutomatedRun.created_at.desc()).limit(5))]
+  defects = [{'type': 'defect', 'id': row.id, 'label': row.defect_key, 'status': row.status, 'created_at': row.created_at.isoformat()} for row in db.scalars(select(Defect).where(*_between(Defect.created_at, filters), *_access_scope(filters, Defect.access_project_id)).order_by(Defect.created_at.desc()).limit(5))]
   return sorted([*manual, *automated, *defects], key=lambda item: item['created_at'], reverse=True)[:10]
 
 
@@ -406,7 +411,7 @@ def flatten_payload(value, prefix='') -> list[dict]:
   return rows[:MAX_EXPORT_ROWS]
 
 
-def export_report(db: Session, report_type: str, export_format: str, filters: dict, operator_id: int) -> ReportExport:
+def export_report(db: Session, report_type: str, export_format: str, filters: dict, operator_id: int, project_id: int) -> ReportExport:
   if report_type not in VALID_REPORT_TYPES:
     raise HTTPException(status_code=422, detail='Unsupported report type.')
   if export_format not in VALID_FORMATS:
@@ -432,6 +437,7 @@ def export_report(db: Session, report_type: str, export_format: str, filters: di
   path.write_bytes(content)
   digest = hashlib.sha256(content).hexdigest()
   item = ReportExport(
+    project_id=project_id,
     export_key=export_key,
     report_type=report_type,
     export_format=export_format,

@@ -13,7 +13,10 @@ config = context.config
 if config.config_file_name:
   fileConfig(config.config_file_name)
 
-database_url = configured_migration_url(config.get_main_option('sqlalchemy.url'))
+database_url = configured_migration_url(
+  config.get_main_option('sqlalchemy.url'),
+  allow_active=bool(config.attributes.get('allow_active_database', False)),
+)
 config.set_main_option('sqlalchemy.url', database_url.replace('%', '%%'))
 target_metadata = get_migration_metadata()
 
@@ -47,7 +50,10 @@ def run_migrations_online() -> None:
   )
   with connectable.connect() as connection:
     if connection.dialect.name == 'sqlite':
-      connection.exec_driver_sql('PRAGMA foreign_keys=ON')
+      # SQLite table-rebuild migrations cannot replace referenced parent
+      # tables while FK enforcement is enabled. Disable it only on this
+      # isolated Alembic connection, then validate every FK before returning.
+      connection.exec_driver_sql('PRAGMA foreign_keys=OFF')
       connection.exec_driver_sql('PRAGMA busy_timeout=30000')
       # SQLAlchemy 2.x autobegins on the PRAGMA calls. End that setup
       # transaction so Alembic owns and commits its migration transaction.
@@ -55,6 +61,12 @@ def run_migrations_online() -> None:
     context.configure(**_context_options(connection))
     with context.begin_transaction():
       context.run_migrations()
+    if connection.dialect.name == 'sqlite':
+      violations = connection.exec_driver_sql('PRAGMA foreign_key_check').fetchall()
+      if violations:
+        raise RuntimeError(f'Alembic migration introduced FK violations: {violations[:5]}')
+      connection.exec_driver_sql('PRAGMA foreign_keys=ON')
+      connection.commit()
   connectable.dispose()
 
 

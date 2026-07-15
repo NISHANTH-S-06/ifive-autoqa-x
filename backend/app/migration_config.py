@@ -46,14 +46,15 @@ def validate_migration_url(raw_url: str, *, allow_active: bool = False) -> str:
   return value
 
 
-def configured_migration_url(configured_url: str | None = None) -> str:
+def configured_migration_url(configured_url: str | None = None, *, allow_active: bool = False) -> str:
   raw_url = (configured_url or '').strip() or os.getenv(MIGRATION_URL_ENV, '')
-  allow_active = os.getenv(ALLOW_ACTIVE_ENV, '').strip().lower() in {'1', 'true', 'yes', 'on'}
-  return validate_migration_url(raw_url, allow_active=allow_active)
+  environment_allows_active = os.getenv(ALLOW_ACTIVE_ENV, '').strip().lower() in {'1', 'true', 'yes', 'on'}
+  return validate_migration_url(raw_url, allow_active=allow_active or environment_allows_active)
 
 
 def make_alembic_config(database_url: str, *, allow_active: bool = False) -> Config:
   validated = validate_migration_url(database_url, allow_active=allow_active)
   config = Config(str(ALEMBIC_INI))
   config.set_main_option('sqlalchemy.url', validated.replace('%', '%%'))
+  config.attributes['allow_active_database'] = allow_active
   return config

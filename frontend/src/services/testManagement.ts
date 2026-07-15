@@ -2,7 +2,7 @@ import { apiGet, apiMutation, apiUrl, getCsrfToken } from './api';
 import type { ManualEvidence, ManualRun, ManualRunCase, ManualResultStatus, TestCase, TestCaseList, TestCaseVersion, TestModule, TestProject, TestProjectList, TestSuite } from '../types/testManagement';
 
 export const fetchTestProjects = (query = '') => apiGet<TestProjectList>(`/api/test-projects${query}`);
-export const createTestProject = (value: { name: string; code: string; description?: string }) => apiMutation<TestProject>('POST', '/api/test-projects', value);
+export const createTestProject = (value: { access_project_id: number; name: string; code: string; description?: string }) => apiMutation<TestProject>('POST', '/api/test-projects', value);
 export const archiveTestProject = (id: number) => apiMutation<TestProject>('POST', `/api/test-projects/${id}/archive`, {});
 export const fetchTestModules = (projectId?: number) => apiGet<TestModule[]>(`/api/test-modules${projectId ? `?project_id=${projectId}` : ''}`);
 export const createTestModule = (value: { project_id: number; name: string; code: string; description?: string }) => apiMutation<TestModule>('POST', '/api/test-modules', value);

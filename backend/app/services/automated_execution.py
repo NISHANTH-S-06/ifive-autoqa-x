@@ -58,7 +58,10 @@ def progress(run: AutomatedRun) -> str:
 
 def add_event(db: Session, run_id: int, event_type: str, status: str = 'INFO', message: str | None = None, metadata: dict | None = None) -> ExecutionEvent:
   safe_metadata = sanitize_metadata(metadata or {})
-  item = ExecutionEvent(run_id=run_id, event_type=event_type, status=status, safe_message=safe_text(message), metadata_json=json.dumps(safe_metadata, sort_keys=True, separators=(',', ':'), ensure_ascii=True))
+  project_id = db.scalar(select(AutomatedRun.project_id).where(AutomatedRun.id == run_id))
+  if project_id is None:
+    raise HTTPException(status_code=404, detail='Automated run not found.')
+  item = ExecutionEvent(project_id=project_id, run_id=run_id, event_type=event_type, status=status, safe_message=safe_text(message), metadata_json=json.dumps(safe_metadata, sort_keys=True, separators=(',', ':'), ensure_ascii=True))
   db.add(item)
   return item
 
@@ -185,6 +188,7 @@ def create_run(db: Session, target: ConnectionTarget, name: str, description: st
   if len(set(case_ids)) != len(case_ids):
     raise HTTPException(status_code=422, detail='Duplicate test cases are not allowed.')
   run = AutomatedRun(
+    project_id=target.project_id,
     run_key=next_run_key(db),
     name=name.strip(),
     description=description,
@@ -201,11 +205,13 @@ def create_run(db: Session, target: ConnectionTarget, name: str, description: st
   db.flush()
   total_steps = 0
   for index, case_id in enumerate(case_ids, start=1):
-    _, version, snapshot = _load_case_version(db, case_id)
+    test_case, version, snapshot = _load_case_version(db, case_id)
+    if test_case.project.access_project_id != target.project_id:
+      raise HTTPException(status_code=400, detail='Cross-project target/test-case relationship is not allowed.')
     steps = validate_snapshot_actions(snapshot)
     run.risk_level = _max_risk(run.risk_level, snapshot_risk_level(snapshot))
     total_steps += len(steps)
-    run.cases.append(AutomatedRunCase(test_case_id=case_id, test_case_version=version.version_number, case_snapshot_json=version.snapshot_json, sort_order=index))
+    run.cases.append(AutomatedRunCase(project_id=run.project_id, test_case_id=case_id, test_case_version=version.version_number, case_snapshot_json=version.snapshot_json, sort_order=index))
   run.total_steps = total_steps
   add_event(db, run.id, 'automated_run_created', metadata={'run_key': run.run_key, 'target_version': run.target_version, 'cases': len(case_ids)})
   return run
@@ -325,7 +331,7 @@ def execute_next_job(db: Session, worker_key: str = 'local-stage10-worker') -> A
   if run is None:
     job.status = 'FAILED'
     return None
-  attempt = ExecutionAttempt(run_id=run.id, attempt_number=run.attempt_count + 1, worker_key=worker_key)
+  attempt = ExecutionAttempt(project_id=run.project_id, run_id=run.id, attempt_number=run.attempt_count + 1, worker_key=worker_key)
   db.add(attempt)
   run.attempt_count += 1
   add_event(db, run.id, 'execution_started', metadata={'worker': worker_key, 'attempt': run.attempt_count})
@@ -391,7 +397,7 @@ def execute_step(db: Session, client: PinnedTargetSession, target: ConnectionTar
   started = time.monotonic()
   result = db.scalar(select(AutomatedStepResult).where(AutomatedStepResult.run_case_id == run_case.id, AutomatedStepResult.step_number == int(step['step_number'])))
   if result is None:
-    result = AutomatedStepResult(run_case_id=run_case.id, step_number=int(step['step_number']))
+    result = AutomatedStepResult(project_id=run.project_id, run_case_id=run_case.id, step_number=int(step['step_number']))
     db.add(result)
   result.action_type = step['action']
   result.selector = step.get('selector')
@@ -491,6 +497,7 @@ def store_artifact(db: Session, run: AutomatedRun, run_case: AutomatedRunCase | 
   path.relative_to(run_dir)
   path.write_bytes(content)
   item = ExecutionArtifact(
+    project_id=run.project_id,
     run_id=run.id,
     run_case_id=run_case.id if run_case else None,
     step_result_id=step.id if step else None,

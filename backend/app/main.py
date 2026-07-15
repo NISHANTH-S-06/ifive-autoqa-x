@@ -10,10 +10,9 @@ from sqlalchemy.orm import Session
 
 from app.api import agents, audit, auth, automated_execution, connection_targets, dashboard, defects, health, operators, projects, reports, results, security, system, test_management, test_runs
 from app.config import settings
-from app.database import Base, SessionLocal, engine, get_db
+from app.database import SessionLocal, get_db
 from app.logging_config import configure_logging, correlation_id_var
-from app.migrations import install_audit_protection, migrate_stage4_schema, migrate_stage6_schema, migrate_stage8_schema, migrate_stage9_schema, migrate_stage10_schema, migrate_stage11_schema, migrate_stage12_schema, migrate_stage13_schema
-from app.models import agent_suggestion, audit_event, automated_execution as automated_execution_models, connection_target, defect, evidence, operator, operator_session, password_history, project, reporting, test_case, test_management as test_management_models, test_result, test_run, test_suite
+from app.migration_safety import assert_database_at_head
 from app.seed import seed_local_projects
 from app.repositories.run_repository import RunRepository
 
@@ -22,16 +21,7 @@ from app.repositories.run_repository import RunRepository
 async def lifespan(_: FastAPI):
   settings.prepare_directories()
   configure_logging()
-  migrate_stage4_schema(engine)
-  migrate_stage6_schema(engine)
-  migrate_stage8_schema(engine)
-  migrate_stage9_schema(engine)
-  migrate_stage10_schema(engine)
-  migrate_stage11_schema(engine)
-  migrate_stage12_schema(engine)
-  migrate_stage13_schema(engine)
-  Base.metadata.create_all(bind=engine)
-  install_audit_protection(engine)
+  assert_database_at_head(settings.database_url, allow_active=True)
   with SessionLocal() as db:
     seed_local_projects(db)
     recovered = RunRepository(db).recover_interrupted()

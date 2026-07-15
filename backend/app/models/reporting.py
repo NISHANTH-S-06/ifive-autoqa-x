@@ -13,6 +13,7 @@ class ReportExport(Base):
   )
 
   id: Mapped[int] = mapped_column(Integer, primary_key=True)
+  project_id: Mapped[int] = mapped_column(ForeignKey('projects.id'), nullable=False, index=True)
   export_key: Mapped[str] = mapped_column(String(80), nullable=False, index=True)
   report_type: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
   export_format: Mapped[str] = mapped_column(String(10), nullable=False)
@@ -37,6 +38,7 @@ class ReportDefinition(Base):
   )
 
   id: Mapped[int] = mapped_column(Integer, primary_key=True)
+  project_id: Mapped[int] = mapped_column(ForeignKey('projects.id'), nullable=False, index=True)
   name: Mapped[str] = mapped_column(String(160), nullable=False)
   report_type: Mapped[str] = mapped_column(String(40), nullable=False)
   filters_json: Mapped[str] = mapped_column(Text, nullable=False, default='{}')

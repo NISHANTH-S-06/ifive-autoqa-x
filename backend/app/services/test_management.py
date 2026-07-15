@@ -136,7 +136,7 @@ def set_case_tags(db: Session, test_case: ManagedTestCase, values: list[str]) ->
       tag = Tag(name=display, normalized_name=key)
       db.add(tag)
       db.flush()
-    test_case.tag_links.append(TestCaseTag(tag=tag))
+    test_case.tag_links.append(TestCaseTag(access_project_id=test_case.access_project_id, tag=tag))
 
 
 def case_tags(test_case: ManagedTestCase) -> list[str]:
@@ -175,6 +175,7 @@ def create_version(db: Session, test_case: ManagedTestCase, created_by: int, sum
   next_number = (db.scalar(select(func.max(TestCaseVersion.version_number)).where(TestCaseVersion.test_case_id == test_case.id)) or 0) + 1
   test_case.current_version = next_number
   version = TestCaseVersion(
+    access_project_id=test_case.access_project_id,
     test_case_id=test_case.id,
     version_number=next_number,
     snapshot_json=json.dumps(snapshot_payload(test_case), sort_keys=True, separators=(',', ':'), ensure_ascii=True),
@@ -220,7 +221,7 @@ def case_read(test_case: ManagedTestCase) -> dict:
 def apply_case_steps(test_case: ManagedTestCase, steps) -> None:
   test_case.steps.clear()
   for step in sorted(steps, key=lambda item: item.step_number):
-    test_case.steps.append(TestCaseStep(step_number=step.step_number, action=step.action, expected_result=step.expected_result, test_data=step.test_data))
+    test_case.steps.append(TestCaseStep(access_project_id=test_case.access_project_id, step_number=step.step_number, action=step.action, expected_result=step.expected_result, test_data=step.test_data))
 
 
 def next_run_key(db: Session) -> str:

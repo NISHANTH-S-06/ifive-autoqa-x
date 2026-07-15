@@ -10,10 +10,12 @@ class RunRepository:
   def __init__(self, db: Session):
     self.db = db
 
-  def list(self, project_id: int | None = None, status: TestRunStatus | None = None, limit: int = 50) -> list[TestRun]:
+  def list(self, project_id: int | None = None, status: TestRunStatus | None = None, limit: int = 50, allowed_project_ids: tuple[int, ...] | None = None) -> list[TestRun]:
     statement = select(TestRun).order_by(TestRun.created_at.desc(), TestRun.id.desc()).limit(limit)
     if project_id is not None:
       statement = statement.where(TestRun.project_id == project_id)
+    if allowed_project_ids is not None:
+      statement = statement.where(TestRun.project_id.in_(allowed_project_ids))
     if status is not None:
       statement = statement.where(TestRun.status == status.value)
     return list(self.db.scalars(statement))
@@ -52,7 +54,7 @@ class RunRepository:
     self.db.commit()
     return result.rowcount
 
-  def summary_counts(self) -> dict[str, int | float]:
+  def summary_counts(self, project_ids: tuple[int, ...] | None = None) -> dict[str, int | float]:
     statement = select(
       func.count(TestRun.id).label('total_runs'),
       func.sum(func.IF(TestRun.status == TestRunStatus.PASSED.value, 1, 0)).label('passed_runs'),
@@ -62,6 +64,8 @@ class RunRepository:
       func.sum(TestRun.total_tests).label('total_tests'),
       func.sum(TestRun.duration_seconds).label('total_duration')
     )
+    if project_ids is not None:
+      statement = statement.where(TestRun.project_id.in_(project_ids))
     result = self.db.execute(statement).first()
     if result is None or result.total_runs == 0:
       return {'total_runs': 0, 'passed_runs': 0, 'failed_runs': 0, 'queued_runs': 0, 'running_runs': 0, 'pass_rate': 0, 'total_tests': 0, 'average_duration_seconds': 0}

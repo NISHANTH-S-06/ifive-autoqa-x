@@ -4,7 +4,7 @@ export type ManualRunStatus = 'PLANNED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELL
 export type ManualResultStatus = 'NOT_RUN' | 'IN_PROGRESS' | 'PASSED' | 'FAILED' | 'BLOCKED' | 'SKIPPED';
 
 export interface PageMeta { limit: number; offset: number; total: number; }
-export interface TestProject { id: number; name: string; code: string; description: string | null; status: string; owner_operator_id: number | null; created_by: number; created_at: string; updated_at: string; archived_at: string | null; version: number; }
+export interface TestProject { id: number; access_project_id: number; name: string; code: string; description: string | null; status: string; owner_operator_id: number | null; created_by: number; created_at: string; updated_at: string; archived_at: string | null; version: number; }
 export interface TestModule { id: number; project_id: number; name: string; code: string; description: string | null; sort_order: number; status: string; }
 export interface TestSuite { id: number; project_id: number; module_id: number; name: string; code: string; description: string | null; suite_type: string; status: string; owner_operator_id: number | null; }
 export interface TestCaseStep { id?: number; step_number: number; action: string; expected_result: string; test_data?: string | null; }

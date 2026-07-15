@@ -15,6 +15,7 @@ class AutomatedRun(Base):
   )
 
   id: Mapped[int] = mapped_column(Integer, primary_key=True)
+  project_id: Mapped[int] = mapped_column(ForeignKey('projects.id'), nullable=False, index=True)
   run_key: Mapped[str] = mapped_column(String(80), nullable=False, index=True)
   name: Mapped[str] = mapped_column(String(180), nullable=False)
   description: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -63,6 +64,7 @@ class AutomatedRunCase(Base):
   )
 
   id: Mapped[int] = mapped_column(Integer, primary_key=True)
+  project_id: Mapped[int] = mapped_column(ForeignKey('projects.id'), nullable=False, index=True)
   run_id: Mapped[int] = mapped_column(ForeignKey('automated_runs.id'), nullable=False, index=True)
   test_case_id: Mapped[int] = mapped_column(ForeignKey('managed_test_cases.id'), nullable=False)
   test_case_version: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -86,6 +88,7 @@ class AutomatedStepResult(Base):
   )
 
   id: Mapped[int] = mapped_column(Integer, primary_key=True)
+  project_id: Mapped[int] = mapped_column(ForeignKey('projects.id'), nullable=False, index=True)
   run_case_id: Mapped[int] = mapped_column(ForeignKey('automated_run_cases.id'), nullable=False, index=True)
   step_number: Mapped[int] = mapped_column(Integer, nullable=False)
   action_type: Mapped[str] = mapped_column(String(40), nullable=False)
@@ -112,6 +115,7 @@ class ExecutionJob(Base):
   )
 
   id: Mapped[int] = mapped_column(Integer, primary_key=True)
+  project_id: Mapped[int] = mapped_column(ForeignKey('projects.id'), nullable=False, index=True)
   run_id: Mapped[int] = mapped_column(ForeignKey('automated_runs.id'), nullable=False, index=True)
   status: Mapped[str] = mapped_column(String(30), nullable=False, default='QUEUED')
   priority: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
@@ -149,6 +153,7 @@ class ExecutionAttempt(Base):
   )
 
   id: Mapped[int] = mapped_column(Integer, primary_key=True)
+  project_id: Mapped[int] = mapped_column(ForeignKey('projects.id'), nullable=False, index=True)
   run_id: Mapped[int] = mapped_column(ForeignKey('automated_runs.id'), nullable=False, index=True)
   attempt_number: Mapped[int] = mapped_column(Integer, nullable=False)
   worker_key: Mapped[str] = mapped_column(String(120), nullable=False)
@@ -164,6 +169,7 @@ class ExecutionEvent(Base):
   __table_args__ = (Index('ix_execution_events_run_created', 'run_id', 'created_at'),)
 
   id: Mapped[int] = mapped_column(Integer, primary_key=True)
+  project_id: Mapped[int] = mapped_column(ForeignKey('projects.id'), nullable=False, index=True)
   run_id: Mapped[int] = mapped_column(ForeignKey('automated_runs.id'), nullable=False, index=True)
   event_type: Mapped[str] = mapped_column(String(80), nullable=False)
   status: Mapped[str] = mapped_column(String(30), nullable=False, default='INFO')
@@ -180,6 +186,7 @@ class ExecutionArtifact(Base):
   )
 
   id: Mapped[int] = mapped_column(Integer, primary_key=True)
+  project_id: Mapped[int] = mapped_column(ForeignKey('projects.id'), nullable=False, index=True)
   run_id: Mapped[int] = mapped_column(ForeignKey('automated_runs.id'), nullable=False, index=True)
   run_case_id: Mapped[int | None] = mapped_column(ForeignKey('automated_run_cases.id'), nullable=True)
   step_result_id: Mapped[int | None] = mapped_column(ForeignKey('automated_step_results.id'), nullable=True)

@@ -6,6 +6,7 @@ export interface Page { limit: number; offset: number; total: number }
 
 export interface ConnectionTarget {
   id: number;
+  project_id: number;
   target_key: string;
   name: string;
   description: string | null;

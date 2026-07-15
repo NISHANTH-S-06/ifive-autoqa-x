@@ -32,6 +32,7 @@ from app.services.target_policy import (
   validate_environment,
   validate_tls_policy,
 )
+from app.services.project_access import ProjectAccessService, ProjectAction
 
 router = APIRouter(tags=['connection-targets'], dependencies=[Depends(get_auth_context)])
 
@@ -48,10 +49,12 @@ def _can_check(context: AuthContext) -> bool:
   return context.operator.role in {'APPROVER', 'ADMIN'}
 
 
-def _get_target(db: Session, target_id: int) -> ConnectionTarget:
+def _get_target(db: Session, target_id: int, context: AuthContext | None = None, action: ProjectAction = ProjectAction.READ) -> ConnectionTarget:
   target = db.get(ConnectionTarget, target_id)
   if target is None:
     raise HTTPException(status_code=404, detail='Connection target not found.')
+  if context is not None:
+    ProjectAccessService(db, context.operator.id).require(target.project_id, action)
   return target
 
 
@@ -93,9 +96,10 @@ def _apply_target_payload(target: ConnectionTarget, payload: ConnectionTargetCre
 
 
 @router.get('/connection-targets', response_model=ConnectionTargetList)
-def list_targets(search: str | None = None, lifecycle_state: str | None = None, environment_type: str | None = None, enabled: bool | None = None, include_archived: bool = False, limit: int = Query(50, ge=1, le=200), offset: int = Query(0, ge=0), db: Session = Depends(get_db)):
-  statement = select(ConnectionTarget)
-  count_statement = select(func.count(ConnectionTarget.id))
+def list_targets(search: str | None = None, lifecycle_state: str | None = None, environment_type: str | None = None, enabled: bool | None = None, include_archived: bool = False, limit: int = Query(50, ge=1, le=200), offset: int = Query(0, ge=0), context: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)):
+  project_ids = ProjectAccessService(db, context.operator.id).project_ids()
+  statement = select(ConnectionTarget).where(ConnectionTarget.project_id.in_(project_ids))
+  count_statement = select(func.count(ConnectionTarget.id)).where(ConnectionTarget.project_id.in_(project_ids))
   filters = []
   if not include_archived:
     filters.append(ConnectionTarget.lifecycle_state != 'ARCHIVED')
@@ -120,10 +124,12 @@ def list_targets(search: str | None = None, lifecycle_state: str | None = None, 
 def create_target(payload: ConnectionTargetCreate, context: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)):
   if not _can_author(context):
     raise HTTPException(status_code=403, detail='You do not have permission to perform this action.')
+  project_id = ProjectAccessService(db, context.operator.id).resolve(payload.project_id, ProjectAction.TEST)
   env = validate_environment(payload.environment_type.value)
   normalized = normalize_url(payload.base_url)
   validate_tls_policy(env, normalized.scheme, payload.tls_verify)
   target = ConnectionTarget(
+    project_id=project_id,
     target_key=normalize_target_key(payload.target_key),
     name=payload.name.strip(),
     description=payload.description,
@@ -152,13 +158,13 @@ def create_target(payload: ConnectionTargetCreate, context: AuthContext = Depend
 
 
 @router.get('/connection-targets/{target_id}', response_model=ConnectionTargetRead)
-def get_target(target_id: int, db: Session = Depends(get_db)):
-  return target_read(_get_target(db, target_id))
+def get_target(target_id: int, context: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)):
+  return target_read(_get_target(db, target_id, context))
 
 
 @router.patch('/connection-targets/{target_id}', response_model=ConnectionTargetRead)
 def update_target(target_id: int, payload: ConnectionTargetUpdate, context: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)):
-  target = _get_target(db, target_id)
+  target = _get_target(db, target_id, context, ProjectAction.TEST)
   if target.lifecycle_state not in {'DRAFT', 'REJECTED', 'APPROVED', 'DISABLED'}:
     raise HTTPException(status_code=409, detail='Target cannot be edited in its current state.')
   if context.operator.role != 'ADMIN' and target.created_by != context.operator.id:
@@ -186,7 +192,7 @@ def update_target(target_id: int, payload: ConnectionTargetUpdate, context: Auth
 
 @router.post('/connection-targets/{target_id}/submit', response_model=ConnectionTargetRead)
 def submit_target(target_id: int, context: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)):
-  target = _get_target(db, target_id)
+  target = _get_target(db, target_id, context, ProjectAction.TEST)
   if target.lifecycle_state not in {'DRAFT', 'REJECTED', 'DISABLED'}:
     raise HTTPException(status_code=409, detail='Only draft, rejected, or disabled targets can be submitted.')
   if context.operator.role != 'ADMIN' and target.created_by != context.operator.id:
@@ -201,7 +207,7 @@ def submit_target(target_id: int, context: AuthContext = Depends(require_csrf), 
 def approve_target(target_id: int, context: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)):
   if not _can_review(context):
     raise HTTPException(status_code=403, detail='You do not have permission to perform this action.')
-  target = _get_target(db, target_id)
+  target = _get_target(db, target_id, context, ProjectAction.APPROVE)
   if target.lifecycle_state != 'IN_REVIEW':
     raise HTTPException(status_code=409, detail='Only targets in review can be approved.')
   if target.created_by == context.operator.id:
@@ -221,7 +227,7 @@ def reject_target(target_id: int, payload: LifecycleReason, context: AuthContext
     raise HTTPException(status_code=403, detail='You do not have permission to perform this action.')
   if not payload.reason or not payload.reason.strip():
     raise HTTPException(status_code=422, detail='Rejection reason is required.')
-  target = _get_target(db, target_id)
+  target = _get_target(db, target_id, context, ProjectAction.APPROVE)
   if target.lifecycle_state != 'IN_REVIEW':
     raise HTTPException(status_code=409, detail='Only targets in review can be rejected.')
   if target.created_by == context.operator.id:
@@ -234,7 +240,7 @@ def reject_target(target_id: int, payload: LifecycleReason, context: AuthContext
 
 @router.post('/connection-targets/{target_id}/revision', response_model=ConnectionTargetRead)
 def revise_target(target_id: int, payload: LifecycleReason, context: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)):
-  target = _get_target(db, target_id)
+  target = _get_target(db, target_id, context, ProjectAction.TEST)
   if target.lifecycle_state != 'REJECTED':
     raise HTTPException(status_code=409, detail='Only rejected targets can return to draft revision.')
   if context.operator.role != 'ADMIN' and target.created_by != context.operator.id:
@@ -249,7 +255,7 @@ def revise_target(target_id: int, payload: LifecycleReason, context: AuthContext
 def disable_target(target_id: int, context: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)):
   if context.operator.role != 'ADMIN':
     raise HTTPException(status_code=403, detail='You do not have permission to perform this action.')
-  target = _get_target(db, target_id)
+  target = _get_target(db, target_id, context, ProjectAction.MANAGE)
   if target.lifecycle_state != 'APPROVED':
     raise HTTPException(status_code=409, detail='Only approved targets can be disabled.')
   target.lifecycle_state = 'DISABLED'; target.enabled = False; target.execution_enabled = False; target.disabled_at = datetime.utcnow(); target.updated_at = datetime.utcnow()
@@ -262,7 +268,7 @@ def disable_target(target_id: int, context: AuthContext = Depends(require_csrf),
 def archive_target(target_id: int, context: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)):
   if context.operator.role != 'ADMIN':
     raise HTTPException(status_code=403, detail='You do not have permission to perform this action.')
-  target = _get_target(db, target_id)
+  target = _get_target(db, target_id, context, ProjectAction.MANAGE)
   if target.lifecycle_state == 'ARCHIVED':
     raise HTTPException(status_code=409, detail='Target is already archived.')
   target.lifecycle_state = 'ARCHIVED'; target.enabled = False; target.execution_enabled = False; target.archived_at = datetime.utcnow(); target.updated_at = datetime.utcnow()
@@ -273,7 +279,7 @@ def archive_target(target_id: int, context: AuthContext = Depends(require_csrf),
 
 @router.post('/connection-targets/{target_id}/execution-submit', response_model=ConnectionTargetRead)
 def submit_target_execution(target_id: int, context: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)):
-  target = _get_target(db, target_id)
+  target = _get_target(db, target_id, context, ProjectAction.TEST)
   if not _can_author(context):
     raise HTTPException(status_code=403, detail='You do not have permission to perform this action.')
   if target.lifecycle_state != 'APPROVED' or not target.enabled:
@@ -296,7 +302,7 @@ def submit_target_execution(target_id: int, context: AuthContext = Depends(requi
 def approve_target_execution(target_id: int, context: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)):
   if not _can_review(context):
     raise HTTPException(status_code=403, detail='You do not have permission to perform this action.')
-  target = _get_target(db, target_id)
+  target = _get_target(db, target_id, context, ProjectAction.APPROVE)
   if target.lifecycle_state != 'APPROVED' or not target.enabled:
     raise HTTPException(status_code=409, detail='Only approved enabled targets can receive execution approval.')
   if target.environment_type == 'PRODUCTION':
@@ -319,7 +325,7 @@ def approve_target_execution(target_id: int, context: AuthContext = Depends(requ
 def disable_target_execution(target_id: int, context: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)):
   if context.operator.role != 'ADMIN':
     raise HTTPException(status_code=403, detail='You do not have permission to perform this action.')
-  target = _get_target(db, target_id)
+  target = _get_target(db, target_id, context, ProjectAction.MANAGE)
   target.execution_enabled = False
   target.execution_approved_by = None
   target.execution_approved_at = None
@@ -329,14 +335,14 @@ def disable_target_execution(target_id: int, context: AuthContext = Depends(requ
 
 
 @router.get('/connection-targets/{target_id}/versions', response_model=list[ConnectionTargetVersionRead])
-def list_target_versions(target_id: int, db: Session = Depends(get_db)):
-  _get_target(db, target_id)
+def list_target_versions(target_id: int, context: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)):
+  _get_target(db, target_id, context)
   return list(db.scalars(select(ConnectionTargetVersion).where(ConnectionTargetVersion.target_id == target_id).order_by(ConnectionTargetVersion.version_number)))
 
 
 @router.get('/connection-targets/{target_id}/checks', response_model=list[ConnectionCheckRead])
 def list_target_checks(target_id: int, context: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)):
-  _get_target(db, target_id)
+  _get_target(db, target_id, context)
   append_event(db, 'connection_history_viewed', operator_id=context.operator.id, resource_type='CONNECTION_TARGET', resource_id=str(target_id)); db.commit()
   return [check_read(item) for item in db.scalars(select(ConnectionCheck).where(ConnectionCheck.target_id == target_id).order_by(ConnectionCheck.created_at.desc()).limit(100))]
 
@@ -345,7 +351,7 @@ def list_target_checks(target_id: int, context: AuthContext = Depends(get_auth_c
 def create_target_check(target_id: int, payload: ConnectionCheckCreate, context: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)):
   if not _can_check(context):
     raise HTTPException(status_code=403, detail='You do not have permission to perform this action.')
-  target = _get_target(db, target_id)
+  target = _get_target(db, target_id, context, ProjectAction.APPROVE)
   append_event(db, 'connection_check_started', operator_id=context.operator.id, resource_type='CONNECTION_TARGET', resource_id=str(target.id), metadata={'method': payload.method.value, 'probe_path': payload.probe_path})
   check = run_connection_check(db, target, payload.method.value, payload.probe_path, context.operator.id)
   append_event(db, 'connection_check_completed' if check.status == 'REACHABLE' else 'connection_check_failed', 'SUCCESS' if check.status == 'REACHABLE' else 'FAILED', context.operator.id, resource_type='CONNECTION_CHECK', resource_id=str(check.id), metadata={'status': check.status, 'http_status': check.http_status, 'target_version': check.target_version})
@@ -353,16 +359,17 @@ def create_target_check(target_id: int, payload: ConnectionCheckCreate, context:
 
 
 @router.get('/connection-checks/{check_id}', response_model=ConnectionCheckRead)
-def get_connection_check(check_id: int, db: Session = Depends(get_db)):
+def get_connection_check(check_id: int, context: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)):
   check = db.get(ConnectionCheck, check_id)
   if check is None:
     raise HTTPException(status_code=404, detail='Connection check not found.')
+  ProjectAccessService(db, context.operator.id).require(check.project_id)
   return check_read(check)
 
 
 @router.get('/connection-targets/{target_id}/credential-profiles', response_model=list[CredentialProfileRead])
-def list_credential_profiles(target_id: int, db: Session = Depends(get_db)):
-  _get_target(db, target_id)
+def list_credential_profiles(target_id: int, context: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)):
+  _get_target(db, target_id, context)
   return list(db.scalars(select(TargetCredentialProfile).where(TargetCredentialProfile.target_id == target_id).order_by(TargetCredentialProfile.profile_name)))
 
 
@@ -370,8 +377,8 @@ def list_credential_profiles(target_id: int, db: Session = Depends(get_db)):
 def create_credential_profile(target_id: int, payload: CredentialProfileCreate, context: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)):
   if context.operator.role not in {'TESTER', 'ADMIN'}:
     raise HTTPException(status_code=403, detail='You do not have permission to perform this action.')
-  _get_target(db, target_id)
-  item = TargetCredentialProfile(target_id=target_id, profile_name=payload.profile_name.strip(), username_hint=payload.username_hint, secret_source=payload.secret_source.value, enabled=payload.enabled, created_by=context.operator.id)
+  target = _get_target(db, target_id, context, ProjectAction.TEST)
+  item = TargetCredentialProfile(project_id=target.project_id, target_id=target_id, profile_name=payload.profile_name.strip(), username_hint=payload.username_hint, secret_source=payload.secret_source.value, enabled=payload.enabled, created_by=context.operator.id)
   db.add(item)
   try: db.flush()
   except IntegrityError:
@@ -387,6 +394,7 @@ def update_credential_profile(profile_id: int, payload: CredentialProfileUpdate,
   item = db.get(TargetCredentialProfile, profile_id)
   if item is None:
     raise HTTPException(status_code=404, detail='Credential profile not found.')
+  ProjectAccessService(db, context.operator.id).require(item.project_id, ProjectAction.TEST)
   for key, value in payload.model_dump(exclude_unset=True).items():
     if hasattr(value, 'value'):
       value = value.value

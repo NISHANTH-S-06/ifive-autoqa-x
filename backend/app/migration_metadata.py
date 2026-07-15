@@ -14,6 +14,7 @@ from app.models import (
   operator_session,
   password_history,
   project,
+  project_membership,
   reporting,
   test_case,
   test_management,
@@ -28,8 +29,21 @@ from app.models import (
 _REGISTERED_MODEL_MODULES = (
   agent_suggestion, audit_event, automated_execution, connection_target,
   defect, evidence, operator, operator_session, password_history, project,
-  reporting, test_case, test_management, test_result, test_run, test_suite,
+  project_membership, reporting, test_case, test_management, test_result, test_run, test_suite,
 )
+
+_DERIVED_PROJECT_COLUMNS = {
+  'test_modules': 'access_project_id',
+  'managed_test_suites': 'access_project_id',
+  'managed_test_cases': 'access_project_id',
+  'test_case_steps': 'access_project_id',
+  'test_case_versions': 'access_project_id',
+  'test_case_tags': 'access_project_id',
+  'manual_test_runs': 'access_project_id',
+  'manual_test_run_cases': 'access_project_id',
+  'manual_step_results': 'access_project_id',
+  'manual_evidence': 'access_project_id',
+}
 
 _LEGACY_SERVER_DEFAULTS = {
   ('automated_runs', 'risk_level'): "'READ_ONLY'",
@@ -51,8 +65,10 @@ def _add_legacy_tables(metadata: MetaData) -> None:
     Column('status', String(40), nullable=False),
     Column('duration_ms', Integer, nullable=False),
     Column('error_message', Text),
+    Column('project_id', Integer, ForeignKey('projects.id'), nullable=False),
   )
   Index('ix_test_results_id', legacy_results.c.id)
+  Index('ix_test_results_legacy_project_id', legacy_results.c.project_id)
 
   legacy_evidence = Table(
     'evidence_legacy', metadata,
@@ -60,8 +76,10 @@ def _add_legacy_tables(metadata: MetaData) -> None:
     Column('result_id', Integer, ForeignKey('test_results_legacy.id'), nullable=False),
     Column('evidence_type', String(40), nullable=False),
     Column('path', String(500), nullable=False),
+    Column('project_id', Integer, ForeignKey('projects.id'), nullable=False),
   )
   Index('ix_evidence_id', legacy_evidence.c.id)
+  Index('ix_evidence_legacy_project_id', legacy_evidence.c.project_id)
 
   legacy_defects = Table(
     'defects_legacy', metadata,
@@ -71,8 +89,10 @@ def _add_legacy_tables(metadata: MetaData) -> None:
     Column('severity', String(40), nullable=False),
     Column('owner', String(120)),
     Column('status', String(40), nullable=False),
+    Column('project_id', Integer, ForeignKey('projects.id'), nullable=False),
   )
   Index('ix_defects_id', legacy_defects.c.id)
+  Index('ix_defects_legacy_project_id', legacy_defects.c.project_id)
 
 
 def get_migration_metadata() -> MetaData:
@@ -80,6 +100,15 @@ def get_migration_metadata() -> MetaData:
   metadata = MetaData()
   for table in Base.metadata.sorted_tables:
     table.to_metadata(metadata)
+
+  # Derived test-management children are authorized through their parent in
+  # application code, while the database also stores their immutable scope for
+  # FK enforcement, reconciliation, and efficient filtering.
+  for table_name, column_name in _DERIVED_PROJECT_COLUMNS.items():
+    table = metadata.tables[table_name]
+    if column_name not in table.c:
+      table.append_column(Column(column_name, Integer, ForeignKey('projects.id'), nullable=False))
+      Index(f'ix_{table_name}_{column_name}', table.c[column_name])
 
   # The ORM declared this index, but it was never created by the legacy schema.
   # Preserve the database exactly in the baseline; a later migration may add it.

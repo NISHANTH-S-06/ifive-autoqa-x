@@ -10,6 +10,7 @@ class TestResult(Base):
   __tablename__ = 'test_results'
 
   id: Mapped[int] = mapped_column(Integer, primary_key=True)
+  project_id: Mapped[int] = mapped_column(ForeignKey('projects.id'), nullable=False, index=True)
   test_run_id: Mapped[int] = mapped_column(ForeignKey('test_runs.id'), nullable=False, index=True)
   test_name: Mapped[str] = mapped_column(String(500), nullable=False)
   test_file: Mapped[str] = mapped_column(String(500), nullable=False)

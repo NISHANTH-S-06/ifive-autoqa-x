@@ -16,6 +16,7 @@ class Defect(Base):
   )
 
   id: Mapped[int] = mapped_column(Integer, primary_key=True)
+  access_project_id: Mapped[int] = mapped_column(ForeignKey('projects.id'), nullable=False, index=True)
   defect_key: Mapped[str] = mapped_column(String(80), nullable=False, index=True)
   title: Mapped[str] = mapped_column(String(220), nullable=False)
   description: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -61,6 +62,7 @@ class DefectComment(Base):
   __table_args__ = (Index('ix_defect_comments_defect_created', 'defect_id', 'created_at'),)
 
   id: Mapped[int] = mapped_column(Integer, primary_key=True)
+  project_id: Mapped[int] = mapped_column(ForeignKey('projects.id'), nullable=False, index=True)
   defect_id: Mapped[int] = mapped_column(ForeignKey('defects.id'), nullable=False, index=True)
   body: Mapped[str] = mapped_column(Text, nullable=False)
   created_by: Mapped[int] = mapped_column(ForeignKey('operators.id'), nullable=False)
@@ -74,6 +76,7 @@ class DefectHistory(Base):
   __table_args__ = (Index('ix_defect_history_defect_created', 'defect_id', 'created_at'),)
 
   id: Mapped[int] = mapped_column(Integer, primary_key=True)
+  project_id: Mapped[int] = mapped_column(ForeignKey('projects.id'), nullable=False, index=True)
   defect_id: Mapped[int] = mapped_column(ForeignKey('defects.id'), nullable=False, index=True)
   event_type: Mapped[str] = mapped_column(String(60), nullable=False)
   old_value: Mapped[str | None] = mapped_column(String(500), nullable=True)
@@ -93,6 +96,7 @@ class DefectEvidenceLink(Base):
   )
 
   id: Mapped[int] = mapped_column(Integer, primary_key=True)
+  project_id: Mapped[int] = mapped_column(ForeignKey('projects.id'), nullable=False, index=True)
   defect_id: Mapped[int] = mapped_column(ForeignKey('defects.id'), nullable=False, index=True)
   manual_evidence_id: Mapped[int | None] = mapped_column(ForeignKey('manual_evidence.id'), nullable=True)
   execution_artifact_id: Mapped[int | None] = mapped_column(ForeignKey('execution_artifacts.id'), nullable=True)
@@ -108,6 +112,7 @@ class DefectRetest(Base):
   __table_args__ = (Index('ix_defect_retests_defect_created', 'defect_id', 'created_at'),)
 
   id: Mapped[int] = mapped_column(Integer, primary_key=True)
+  project_id: Mapped[int] = mapped_column(ForeignKey('projects.id'), nullable=False, index=True)
   defect_id: Mapped[int] = mapped_column(ForeignKey('defects.id'), nullable=False, index=True)
   manual_run_id: Mapped[int | None] = mapped_column(ForeignKey('manual_test_runs.id'), nullable=True)
   automated_run_id: Mapped[int | None] = mapped_column(ForeignKey('automated_runs.id'), nullable=True)

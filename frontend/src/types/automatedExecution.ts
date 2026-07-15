@@ -2,6 +2,7 @@ import type { PageMeta } from './testManagement';
 
 export interface AutomatedRun {
   id: number;
+  project_id: number;
   run_key: string;
   name: string;
   description: string | null;

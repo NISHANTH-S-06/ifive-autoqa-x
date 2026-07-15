@@ -14,6 +14,7 @@ class TestProject(Base):
   )
 
   id: Mapped[int] = mapped_column(Integer, primary_key=True)
+  access_project_id: Mapped[int] = mapped_column(ForeignKey('projects.id'), nullable=False, index=True)
   name: Mapped[str] = mapped_column(String(160), nullable=False)
   code: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
   description: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -38,6 +39,7 @@ class TestModule(Base):
   )
 
   id: Mapped[int] = mapped_column(Integer, primary_key=True)
+  access_project_id: Mapped[int] = mapped_column(ForeignKey('projects.id'), nullable=False, index=True)
   project_id: Mapped[int] = mapped_column(ForeignKey('test_projects.id'), nullable=False, index=True)
   name: Mapped[str] = mapped_column(String(160), nullable=False)
   code: Mapped[str] = mapped_column(String(40), nullable=False)
@@ -62,6 +64,7 @@ class ManagedTestSuite(Base):
   )
 
   id: Mapped[int] = mapped_column(Integer, primary_key=True)
+  access_project_id: Mapped[int] = mapped_column(ForeignKey('projects.id'), nullable=False, index=True)
   project_id: Mapped[int] = mapped_column(ForeignKey('test_projects.id'), nullable=False, index=True)
   module_id: Mapped[int] = mapped_column(ForeignKey('test_modules.id'), nullable=False, index=True)
   name: Mapped[str] = mapped_column(String(160), nullable=False)
@@ -91,6 +94,7 @@ class ManagedTestCase(Base):
   )
 
   id: Mapped[int] = mapped_column(Integer, primary_key=True)
+  access_project_id: Mapped[int] = mapped_column(ForeignKey('projects.id'), nullable=False, index=True)
   project_id: Mapped[int] = mapped_column(ForeignKey('test_projects.id'), nullable=False, index=True)
   module_id: Mapped[int] = mapped_column(ForeignKey('test_modules.id'), nullable=False, index=True)
   suite_id: Mapped[int] = mapped_column(ForeignKey('managed_test_suites.id'), nullable=False, index=True)
@@ -129,6 +133,7 @@ class TestCaseStep(Base):
   )
 
   id: Mapped[int] = mapped_column(Integer, primary_key=True)
+  access_project_id: Mapped[int] = mapped_column(ForeignKey('projects.id'), nullable=False, index=True)
   test_case_id: Mapped[int] = mapped_column(ForeignKey('managed_test_cases.id'), nullable=False, index=True)
   step_number: Mapped[int] = mapped_column(Integer, nullable=False)
   action: Mapped[str] = mapped_column(Text, nullable=False)
@@ -148,6 +153,7 @@ class TestCaseVersion(Base):
   )
 
   id: Mapped[int] = mapped_column(Integer, primary_key=True)
+  access_project_id: Mapped[int] = mapped_column(ForeignKey('projects.id'), nullable=False, index=True)
   test_case_id: Mapped[int] = mapped_column(ForeignKey('managed_test_cases.id'), nullable=False, index=True)
   version_number: Mapped[int] = mapped_column(Integer, nullable=False)
   snapshot_json: Mapped[str] = mapped_column(Text, nullable=False)
@@ -176,6 +182,7 @@ class TestCaseTag(Base):
   __table_args__ = (UniqueConstraint('test_case_id', 'tag_id', name='uq_test_case_tags_case_tag'),)
 
   test_case_id: Mapped[int] = mapped_column(ForeignKey('managed_test_cases.id'), primary_key=True)
+  access_project_id: Mapped[int] = mapped_column(ForeignKey('projects.id'), nullable=False, index=True)
   tag_id: Mapped[int] = mapped_column(ForeignKey('tags.id'), primary_key=True)
   created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
 
@@ -191,6 +198,7 @@ class ManualTestRun(Base):
   )
 
   id: Mapped[int] = mapped_column(Integer, primary_key=True)
+  access_project_id: Mapped[int] = mapped_column(ForeignKey('projects.id'), nullable=False, index=True)
   run_key: Mapped[str] = mapped_column(String(60), nullable=False, index=True)
   project_id: Mapped[int] = mapped_column(ForeignKey('test_projects.id'), nullable=False, index=True)
   suite_id: Mapped[int] = mapped_column(ForeignKey('managed_test_suites.id'), nullable=False)
@@ -216,6 +224,7 @@ class ManualTestRunCase(Base):
   )
 
   id: Mapped[int] = mapped_column(Integer, primary_key=True)
+  access_project_id: Mapped[int] = mapped_column(ForeignKey('projects.id'), nullable=False, index=True)
   run_id: Mapped[int] = mapped_column(ForeignKey('manual_test_runs.id'), nullable=False, index=True)
   test_case_id: Mapped[int] = mapped_column(ForeignKey('managed_test_cases.id'), nullable=False)
   test_case_version: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -241,6 +250,7 @@ class ManualStepResult(Base):
   )
 
   id: Mapped[int] = mapped_column(Integer, primary_key=True)
+  access_project_id: Mapped[int] = mapped_column(ForeignKey('projects.id'), nullable=False, index=True)
   run_case_id: Mapped[int] = mapped_column(ForeignKey('manual_test_run_cases.id'), nullable=False, index=True)
   step_number: Mapped[int] = mapped_column(Integer, nullable=False)
   status: Mapped[str] = mapped_column(String(20), nullable=False, default='NOT_RUN')
@@ -258,6 +268,7 @@ class ManualEvidence(Base):
   __table_args__ = (Index('ix_manual_evidence_run_case', 'run_case_id'),)
 
   id: Mapped[int] = mapped_column(Integer, primary_key=True)
+  access_project_id: Mapped[int] = mapped_column(ForeignKey('projects.id'), nullable=False, index=True)
   run_case_id: Mapped[int] = mapped_column(ForeignKey('manual_test_run_cases.id'), nullable=False)
   step_result_id: Mapped[int | None] = mapped_column(ForeignKey('manual_step_results.id'), nullable=True)
   evidence_type: Mapped[str] = mapped_column(String(20), nullable=False)

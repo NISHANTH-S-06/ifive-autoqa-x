@@ -31,6 +31,7 @@ def sanitize_headers(headers: httpx.Headers) -> dict[str, str]:
 def target_snapshot(target: ConnectionTarget) -> dict:
   return {
     'id': target.id,
+    'project_id': target.project_id,
     'target_key': target.target_key,
     'name': target.name,
     'description': target.description,
@@ -56,6 +57,7 @@ def create_target_version(db: Session, target: ConnectionTarget, created_by: int
   next_number = (db.scalar(select(func.max(ConnectionTargetVersion.version_number)).where(ConnectionTargetVersion.target_id == target.id)) or 0) + 1
   target.version = next_number
   version = ConnectionTargetVersion(
+    project_id=target.project_id,
     target_id=target.id,
     version_number=next_number,
     snapshot_json=json.dumps(target_snapshot(target), sort_keys=True, separators=(',', ':'), ensure_ascii=True),
@@ -132,6 +134,7 @@ def run_connection_check(db: Session, target: ConnectionTarget, method: str, pro
   started = time.monotonic()
   addresses: list[str] = []
   check = ConnectionCheck(
+    project_id=target.project_id,
     check_key=f'CONN-{uuid4().hex[:12].upper()}',
     target_id=target.id,
     target_version=target.version,

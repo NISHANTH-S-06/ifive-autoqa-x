@@ -83,6 +83,7 @@ export interface QualityReport {
 
 export interface ReportExport {
   id: number;
+  project_id: number;
   export_key: string;
   report_type: string;
   export_format: string;
@@ -98,6 +99,7 @@ export interface ReportExport {
 
 export interface ReportDefinition {
   id: number;
+  project_id: number;
   name: string;
   report_type: string;
   filters: ReportFilters;

@@ -76,6 +76,7 @@ from app.services.test_management import (
   validate_result_status,
   validate_steps,
 )
+from app.services.project_access import ProjectAccessService, ProjectAction
 
 router = APIRouter(tags=['test-management'], dependencies=[Depends(get_auth_context)])
 
@@ -110,10 +111,12 @@ def _page(limit: int, offset: int, total: int) -> Page:
   return Page(limit=limit, offset=offset, total=total)
 
 
-def _get_case(db: Session, case_id: int) -> ManagedTestCase:
+def _get_case(db: Session, case_id: int, context: AuthContext | None = None, action: ProjectAction = ProjectAction.READ) -> ManagedTestCase:
   item = db.scalar(select(ManagedTestCase).options(selectinload(ManagedTestCase.steps), selectinload(ManagedTestCase.tag_links).selectinload(TestCaseTag.tag)).where(ManagedTestCase.id == case_id))
   if item is None:
     raise HTTPException(status_code=404, detail='Test case not found.')
+  if context is not None:
+    ProjectAccessService(db, context.operator.id).require(item.access_project_id, action)
   return item
 
 
@@ -122,9 +125,10 @@ def _case_query():
 
 
 @router.get('/test-projects', response_model=TestProjectList)
-def list_test_projects(search: str | None = None, status: str | None = None, owner_id: int | None = None, include_archived: bool = False, limit: int = Query(50, ge=1, le=200), offset: int = Query(0, ge=0), db: Session = Depends(get_db)):
-  statement = select(TestProject)
-  count_statement = select(func.count(TestProject.id))
+def list_test_projects(search: str | None = None, status: str | None = None, owner_id: int | None = None, include_archived: bool = False, limit: int = Query(50, ge=1, le=200), offset: int = Query(0, ge=0), context: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)):
+  project_ids = ProjectAccessService(db, context.operator.id).project_ids()
+  statement = select(TestProject).where(TestProject.access_project_id.in_(project_ids))
+  count_statement = select(func.count(TestProject.id)).where(TestProject.access_project_id.in_(project_ids))
   filters = []
   if not include_archived:
     filters.append(TestProject.status != ARCHIVED)
@@ -147,7 +151,8 @@ def list_test_projects(search: str | None = None, status: str | None = None, own
 def create_test_project(payload: TestProjectCreate, context: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)):
   _require_manage(context)
   validate_operator(db, payload.owner_operator_id)
-  item = TestProject(name=payload.name.strip(), code=normalize_code(payload.code), description=payload.description, owner_operator_id=payload.owner_operator_id, created_by=context.operator.id)
+  access_project_id = ProjectAccessService(db, context.operator.id).resolve(payload.access_project_id, ProjectAction.TEST)
+  item = TestProject(access_project_id=access_project_id, name=payload.name.strip(), code=normalize_code(payload.code), description=payload.description, owner_operator_id=payload.owner_operator_id, created_by=context.operator.id)
   db.add(item)
   try:
     db.flush()
@@ -159,10 +164,11 @@ def create_test_project(payload: TestProjectCreate, context: AuthContext = Depen
 
 
 @router.get('/test-projects/{project_id}', response_model=TestProjectRead)
-def get_test_project(project_id: int, db: Session = Depends(get_db)):
+def get_test_project(project_id: int, context: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)):
   item = db.get(TestProject, project_id)
   if item is None:
     raise HTTPException(status_code=404, detail='Test project not found.')
+  ProjectAccessService(db, context.operator.id).require(item.access_project_id)
   return item
 
 
@@ -170,6 +176,7 @@ def get_test_project(project_id: int, db: Session = Depends(get_db)):
 def update_test_project(project_id: int, payload: TestProjectUpdate, context: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)):
   _require_manage(context)
   item = require_project_active(db.get(TestProject, project_id))
+  ProjectAccessService(db, context.operator.id).require(item.access_project_id, ProjectAction.MANAGE)
   if payload.version is not None and payload.version != item.version:
     raise HTTPException(status_code=409, detail='Project version conflict.')
   validate_operator(db, payload.owner_operator_id)
@@ -184,14 +191,15 @@ def update_test_project(project_id: int, payload: TestProjectUpdate, context: Au
 def archive_test_project(project_id: int, context: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)):
   _require_manage(context)
   item = require_project_active(db.get(TestProject, project_id))
+  ProjectAccessService(db, context.operator.id).require(item.access_project_id, ProjectAction.MANAGE)
   item.status = ARCHIVED; item.archived_at = datetime.utcnow(); item.version += 1
   append_event(db, 'test_project_archived', operator_id=context.operator.id, resource_type='TEST_PROJECT', resource_id=str(item.id), metadata={'code': item.code})
   db.commit(); db.refresh(item); return item
 
 
 @router.get('/test-modules', response_model=list[TestModuleRead])
-def list_test_modules(project_id: int | None = None, include_archived: bool = False, db: Session = Depends(get_db)):
-  statement = select(TestModule)
+def list_test_modules(project_id: int | None = None, include_archived: bool = False, context: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)):
+  statement = select(TestModule).where(TestModule.access_project_id.in_(ProjectAccessService(db, context.operator.id).project_ids()))
   if project_id is not None:
     statement = statement.where(TestModule.project_id == project_id)
   if not include_archived:
@@ -202,8 +210,9 @@ def list_test_modules(project_id: int | None = None, include_archived: bool = Fa
 @router.post('/test-modules', response_model=TestModuleRead, status_code=201)
 def create_test_module(payload: TestModuleCreate, context: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)):
   _require_manage(context)
-  require_project_active(db.get(TestProject, payload.project_id))
-  item = TestModule(project_id=payload.project_id, name=payload.name.strip(), code=normalize_code(payload.code), description=payload.description, sort_order=payload.sort_order, created_by=context.operator.id)
+  project = require_project_active(db.get(TestProject, payload.project_id))
+  ProjectAccessService(db, context.operator.id).require(project.access_project_id, ProjectAction.MANAGE)
+  item = TestModule(access_project_id=project.access_project_id, project_id=payload.project_id, name=payload.name.strip(), code=normalize_code(payload.code), description=payload.description, sort_order=payload.sort_order, created_by=context.operator.id)
   db.add(item)
   try: db.flush()
   except IntegrityError:
@@ -216,6 +225,7 @@ def create_test_module(payload: TestModuleCreate, context: AuthContext = Depends
 def update_test_module(module_id: int, payload: TestModuleUpdate, context: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)):
   _require_manage(context)
   item = require_module_active(db.get(TestModule, module_id))
+  ProjectAccessService(db, context.operator.id).require(item.access_project_id, ProjectAction.MANAGE)
   for key, value in payload.model_dump(exclude_unset=True).items():
     setattr(item, key, value.strip() if isinstance(value, str) else value)
   append_event(db, 'test_module_updated', operator_id=context.operator.id, resource_type='TEST_MODULE', resource_id=str(item.id), metadata={'code': item.code})
@@ -226,14 +236,15 @@ def update_test_module(module_id: int, payload: TestModuleUpdate, context: AuthC
 def archive_test_module(module_id: int, context: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)):
   _require_manage(context)
   item = require_module_active(db.get(TestModule, module_id))
+  ProjectAccessService(db, context.operator.id).require(item.access_project_id, ProjectAction.MANAGE)
   item.status = ARCHIVED; item.archived_at = datetime.utcnow()
   append_event(db, 'test_module_archived', operator_id=context.operator.id, resource_type='TEST_MODULE', resource_id=str(item.id), metadata={'code': item.code})
   db.commit(); db.refresh(item); return item
 
 
 @router.get('/test-suites', response_model=list[TestSuiteRead])
-def list_test_suites(project_id: int | None = None, module_id: int | None = None, include_archived: bool = False, db: Session = Depends(get_db)):
-  statement = select(ManagedTestSuite)
+def list_test_suites(project_id: int | None = None, module_id: int | None = None, include_archived: bool = False, context: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)):
+  statement = select(ManagedTestSuite).where(ManagedTestSuite.access_project_id.in_(ProjectAccessService(db, context.operator.id).project_ids()))
   if project_id is not None:
     statement = statement.where(ManagedTestSuite.project_id == project_id)
   if module_id is not None:
@@ -246,10 +257,11 @@ def list_test_suites(project_id: int | None = None, module_id: int | None = None
 @router.post('/test-suites', response_model=TestSuiteRead, status_code=201)
 def create_test_suite(payload: TestSuiteCreate, context: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)):
   _require_manage(context)
-  require_project_active(db.get(TestProject, payload.project_id))
+  project = require_project_active(db.get(TestProject, payload.project_id))
+  ProjectAccessService(db, context.operator.id).require(project.access_project_id, ProjectAction.MANAGE)
   require_module_active(db.get(TestModule, payload.module_id), payload.project_id)
   validate_operator(db, payload.owner_operator_id)
-  item = ManagedTestSuite(project_id=payload.project_id, module_id=payload.module_id, name=payload.name.strip(), code=normalize_code(payload.code), description=payload.description, suite_type=payload.suite_type.strip().upper(), owner_operator_id=payload.owner_operator_id, created_by=context.operator.id)
+  item = ManagedTestSuite(access_project_id=project.access_project_id, project_id=payload.project_id, module_id=payload.module_id, name=payload.name.strip(), code=normalize_code(payload.code), description=payload.description, suite_type=payload.suite_type.strip().upper(), owner_operator_id=payload.owner_operator_id, created_by=context.operator.id)
   db.add(item)
   try: db.flush()
   except IntegrityError:
@@ -262,6 +274,7 @@ def create_test_suite(payload: TestSuiteCreate, context: AuthContext = Depends(r
 def update_test_suite(suite_id: int, payload: TestSuiteUpdate, context: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)):
   _require_manage(context)
   item = require_suite_active(db.get(ManagedTestSuite, suite_id))
+  ProjectAccessService(db, context.operator.id).require(item.access_project_id, ProjectAction.MANAGE)
   validate_operator(db, payload.owner_operator_id)
   for key, value in payload.model_dump(exclude_unset=True).items():
     setattr(item, key, value.strip() if isinstance(value, str) else value)
@@ -273,6 +286,7 @@ def update_test_suite(suite_id: int, payload: TestSuiteUpdate, context: AuthCont
 def archive_test_suite(suite_id: int, context: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)):
   _require_manage(context)
   item = require_suite_active(db.get(ManagedTestSuite, suite_id))
+  ProjectAccessService(db, context.operator.id).require(item.access_project_id, ProjectAction.MANAGE)
   item.status = ARCHIVED; item.archived_at = datetime.utcnow()
   append_event(db, 'test_suite_archived', operator_id=context.operator.id, resource_type='TEST_SUITE', resource_id=str(item.id), metadata={'code': item.code})
   db.commit(); db.refresh(item); return item
@@ -280,7 +294,7 @@ def archive_test_suite(suite_id: int, context: AuthContext = Depends(require_csr
 
 @router.get('/test-cases/export')
 def export_test_cases(format: str = Query('csv', pattern='^(csv|json)$'), limit: int = Query(200, ge=1, le=1000), context: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)):
-  rows = list(db.scalars(_case_query().where(ManagedTestCase.status != ARCHIVED).order_by(ManagedTestCase.updated_at.desc()).limit(limit)))
+  rows = list(db.scalars(_case_query().where(ManagedTestCase.status != ARCHIVED, ManagedTestCase.access_project_id.in_(ProjectAccessService(db, context.operator.id).project_ids())).order_by(ManagedTestCase.updated_at.desc()).limit(limit)))
   append_event(db, 'test_export_created', operator_id=context.operator.id, resource_type='TEST_CASE', metadata={'format': format, 'rows': len(rows)})
   db.commit()
   if format == 'json':
@@ -289,10 +303,10 @@ def export_test_cases(format: str = Query('csv', pattern='^(csv|json)$'), limit:
 
 
 @router.get('/test-cases', response_model=TestCaseList)
-def list_test_cases(project_id: int | None = None, module_id: int | None = None, suite_id: int | None = None, lifecycle_state: str | None = None, priority: str | None = None, test_type: str | None = None, owner_id: int | None = None, creator_id: int | None = None, tag: str | None = None, search: str | None = None, sort: str = 'updated_at', direction: str = 'desc', limit: int = Query(50, ge=1, le=200), offset: int = Query(0, ge=0), db: Session = Depends(get_db)):
+def list_test_cases(project_id: int | None = None, module_id: int | None = None, suite_id: int | None = None, lifecycle_state: str | None = None, priority: str | None = None, test_type: str | None = None, owner_id: int | None = None, creator_id: int | None = None, tag: str | None = None, search: str | None = None, sort: str = 'updated_at', direction: str = 'desc', limit: int = Query(50, ge=1, le=200), offset: int = Query(0, ge=0), context: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)):
   statement = _case_query()
   count_statement = select(func.count(ManagedTestCase.id))
-  filters = [ManagedTestCase.status != ARCHIVED]
+  filters = [ManagedTestCase.status != ARCHIVED, ManagedTestCase.access_project_id.in_(ProjectAccessService(db, context.operator.id).project_ids())]
   if project_id is not None: filters.append(ManagedTestCase.project_id == project_id)
   if module_id is not None: filters.append(ManagedTestCase.module_id == module_id)
   if suite_id is not None: filters.append(ManagedTestCase.suite_id == suite_id)
@@ -324,12 +338,13 @@ def list_test_cases(project_id: int | None = None, module_id: int | None = None,
 @router.post('/test-cases', response_model=TestCaseRead, status_code=201)
 def create_test_case(payload: TestCaseCreate, context: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)):
   _require_author(context)
-  require_project_active(db.get(TestProject, payload.project_id))
+  project = require_project_active(db.get(TestProject, payload.project_id))
+  ProjectAccessService(db, context.operator.id).require(project.access_project_id, ProjectAction.TEST)
   require_module_active(db.get(TestModule, payload.module_id), payload.project_id)
   require_suite_active(db.get(ManagedTestSuite, payload.suite_id), payload.project_id, payload.module_id)
   validate_operator(db, payload.owner_operator_id)
   validate_steps(payload.steps)
-  item = ManagedTestCase(project_id=payload.project_id, module_id=payload.module_id, suite_id=payload.suite_id, case_key=normalize_code(payload.case_key), title=payload.title.strip(), objective=payload.objective, preconditions=payload.preconditions, test_type=payload.test_type.value, priority=payload.priority.value, severity=payload.severity.value, owner_operator_id=payload.owner_operator_id, created_by=context.operator.id)
+  item = ManagedTestCase(access_project_id=project.access_project_id, project_id=payload.project_id, module_id=payload.module_id, suite_id=payload.suite_id, case_key=normalize_code(payload.case_key), title=payload.title.strip(), objective=payload.objective, preconditions=payload.preconditions, test_type=payload.test_type.value, priority=payload.priority.value, severity=payload.severity.value, owner_operator_id=payload.owner_operator_id, created_by=context.operator.id)
   apply_case_steps(item, payload.steps)
   db.add(item)
   try:
@@ -343,13 +358,13 @@ def create_test_case(payload: TestCaseCreate, context: AuthContext = Depends(req
 
 
 @router.get('/test-cases/{case_id}', response_model=TestCaseRead)
-def get_test_case(case_id: int, db: Session = Depends(get_db)):
-  return case_read(_get_case(db, case_id))
+def get_test_case(case_id: int, context: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)):
+  return case_read(_get_case(db, case_id, context))
 
 
 @router.patch('/test-cases/{case_id}', response_model=TestCaseRead)
 def update_test_case(case_id: int, payload: TestCaseUpdate, context: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)):
-  item = _get_case(db, case_id)
+  item = _get_case(db, case_id, context)
   if item.lifecycle_state not in EDITABLE_STATES:
     raise HTTPException(status_code=409, detail='Only draft or rejected test cases can be edited directly.')
   if context.operator.role != 'ADMIN' and item.created_by != context.operator.id:
@@ -369,7 +384,7 @@ def update_test_case(case_id: int, payload: TestCaseUpdate, context: AuthContext
 
 @router.post('/test-cases/{case_id}/submit', response_model=TestCaseRead)
 def submit_test_case(case_id: int, context: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)):
-  item = _get_case(db, case_id)
+  item = _get_case(db, case_id, context, ProjectAction.TEST)
   if item.lifecycle_state not in {'DRAFT', 'REJECTED'}:
     raise HTTPException(status_code=409, detail='Only draft or rejected cases can be submitted.')
   if context.operator.role != 'ADMIN' and item.created_by != context.operator.id:
@@ -384,7 +399,7 @@ def submit_test_case(case_id: int, context: AuthContext = Depends(require_csrf),
 def approve_test_case(case_id: int, context: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)):
   if not _can_review(context):
     raise HTTPException(status_code=403, detail='You do not have permission to perform this action.')
-  item = _get_case(db, case_id)
+  item = _get_case(db, case_id, context, ProjectAction.APPROVE)
   if item.lifecycle_state != 'IN_REVIEW':
     raise HTTPException(status_code=409, detail='Only cases in review can be approved.')
   if item.created_by == context.operator.id:
@@ -405,7 +420,7 @@ def reject_test_case(case_id: int, payload: LifecycleReason, context: AuthContex
   if not payload.reason or not payload.reason.strip():
     raise HTTPException(status_code=422, detail='Rejection reason is required.')
   reject_secret_like(payload.reason, 'Rejection reason')
-  item = _get_case(db, case_id)
+  item = _get_case(db, case_id, context, ProjectAction.APPROVE)
   if item.lifecycle_state != 'IN_REVIEW':
     raise HTTPException(status_code=409, detail='Only cases in review can be rejected.')
   if item.created_by == context.operator.id:
@@ -418,7 +433,7 @@ def reject_test_case(case_id: int, payload: LifecycleReason, context: AuthContex
 
 @router.post('/test-cases/{case_id}/revision', response_model=TestCaseRead)
 def revise_test_case(case_id: int, payload: LifecycleReason, context: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)):
-  item = _get_case(db, case_id)
+  item = _get_case(db, case_id, context, ProjectAction.TEST)
   if item.lifecycle_state != 'APPROVED':
     raise HTTPException(status_code=409, detail='Only approved cases can create a controlled draft revision.')
   if context.operator.role != 'ADMIN' and item.created_by != context.operator.id:
@@ -431,7 +446,7 @@ def revise_test_case(case_id: int, payload: LifecycleReason, context: AuthContex
 
 @router.post('/test-cases/{case_id}/archive', response_model=TestCaseRead)
 def archive_test_case(case_id: int, context: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)):
-  item = _get_case(db, case_id)
+  item = _get_case(db, case_id, context, ProjectAction.TEST)
   if context.operator.role != 'ADMIN' and item.created_by != context.operator.id:
     raise HTTPException(status_code=403, detail='Only the creator or ADMIN can archive this case.')
   item.status = ARCHIVED; item.lifecycle_state = 'ARCHIVED'; item.archived_at = datetime.utcnow(); item.updated_at = datetime.utcnow()
@@ -441,22 +456,23 @@ def archive_test_case(case_id: int, context: AuthContext = Depends(require_csrf)
 
 
 @router.get('/test-cases/{case_id}/versions', response_model=list[TestCaseVersionRead])
-def list_test_case_versions(case_id: int, db: Session = Depends(get_db)):
-  _get_case(db, case_id)
+def list_test_case_versions(case_id: int, context: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)):
+  _get_case(db, case_id, context)
   return list(db.scalars(select(TestCaseVersion).where(TestCaseVersion.test_case_id == case_id).order_by(TestCaseVersion.version_number)))
 
 
 @router.get('/test-cases/{case_id}/versions/{version_number}', response_model=TestCaseVersionRead)
-def get_test_case_version(case_id: int, version_number: int, db: Session = Depends(get_db)):
+def get_test_case_version(case_id: int, version_number: int, context: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)):
   version = db.scalar(select(TestCaseVersion).where(TestCaseVersion.test_case_id == case_id, TestCaseVersion.version_number == version_number))
   if version is None:
     raise HTTPException(status_code=404, detail='Test case version not found.')
+  ProjectAccessService(db, context.operator.id).require(version.access_project_id)
   return version
 
 
 @router.get('/manual-test-runs', response_model=list[ManualRunRead])
-def list_manual_runs(status: str | None = None, db: Session = Depends(get_db)):
-  statement = select(ManualTestRun)
+def list_manual_runs(status: str | None = None, context: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)):
+  statement = select(ManualTestRun).where(ManualTestRun.access_project_id.in_(ProjectAccessService(db, context.operator.id).project_ids()))
   if status:
     statement = statement.where(ManualTestRun.status == status.upper())
   rows = list(db.scalars(statement.order_by(ManualTestRun.created_at.desc())))
@@ -470,12 +486,13 @@ def list_manual_runs(status: str | None = None, db: Session = Depends(get_db)):
 @router.post('/manual-test-runs', response_model=ManualRunRead, status_code=201)
 def create_manual_run(payload: ManualRunCreate, context: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)):
   _require_author(context)
-  require_project_active(db.get(TestProject, payload.project_id))
+  project = require_project_active(db.get(TestProject, payload.project_id))
+  ProjectAccessService(db, context.operator.id).require(project.access_project_id, ProjectAction.TEST)
   require_suite_active(db.get(ManagedTestSuite, payload.suite_id), payload.project_id)
   if not allowed_assignment(context.operator, payload.assigned_to):
     raise HTTPException(status_code=403, detail='Assignment is not allowed for this operator.')
   validate_operator(db, payload.assigned_to)
-  run = ManualTestRun(run_key=next_run_key(db), project_id=payload.project_id, suite_id=payload.suite_id, name=payload.name.strip(), description=payload.description, assigned_to=payload.assigned_to, created_by=context.operator.id)
+  run = ManualTestRun(access_project_id=project.access_project_id, run_key=next_run_key(db), project_id=payload.project_id, suite_id=payload.suite_id, name=payload.name.strip(), description=payload.description, assigned_to=payload.assigned_to, created_by=context.operator.id)
   db.add(run); db.flush()
   seen = set()
   for case_id in payload.case_ids:
@@ -484,16 +501,17 @@ def create_manual_run(payload: ManualRunCreate, context: AuthContext = Depends(r
     seen.add(case_id)
     test_case = _get_case(db, case_id)
     ensure_case_approved_for_run(test_case, run)
-    run.cases.append(ManualTestRunCase(test_case_id=test_case.id, test_case_version=test_case.current_version, assigned_to=payload.assigned_to))
+    run.cases.append(ManualTestRunCase(access_project_id=run.access_project_id, test_case_id=test_case.id, test_case_version=test_case.current_version, assigned_to=payload.assigned_to))
   append_event(db, 'test_run_created', operator_id=context.operator.id, resource_type='MANUAL_TEST_RUN', resource_id=str(run.id), metadata={'run_key': run.run_key})
   db.commit(); db.refresh(run); run.progress = f'0/{len(run.cases)}'; return run
 
 
 @router.get('/manual-test-runs/{run_id}', response_model=ManualRunRead)
-def get_manual_run(run_id: int, db: Session = Depends(get_db)):
+def get_manual_run(run_id: int, context: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)):
   run = db.get(ManualTestRun, run_id)
   if run is None:
     raise HTTPException(status_code=404, detail='Manual run not found.')
+  ProjectAccessService(db, context.operator.id).require(run.access_project_id)
   total = len(run.cases); done = sum(case.status in RESULT_TERMINAL for case in run.cases); run.progress = f'{done}/{total}'
   return run
 
@@ -502,6 +520,7 @@ def get_manual_run(run_id: int, db: Session = Depends(get_db)):
 def start_manual_run(run_id: int, context: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)):
   run = db.get(ManualTestRun, run_id)
   if run is None: raise HTTPException(status_code=404, detail='Manual run not found.')
+  ProjectAccessService(db, context.operator.id).require(run.access_project_id, ProjectAction.TEST)
   if not _can_execute_manual(context, run.assigned_to): raise HTTPException(status_code=403, detail='You do not have permission to perform this action.')
   if run.status != 'PLANNED': raise HTTPException(status_code=409, detail='Only planned runs can be started.')
   run.status = 'IN_PROGRESS'; run.started_at = datetime.utcnow()
@@ -513,6 +532,7 @@ def start_manual_run(run_id: int, context: AuthContext = Depends(require_csrf), 
 def complete_manual_run(run_id: int, context: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)):
   run = db.get(ManualTestRun, run_id)
   if run is None: raise HTTPException(status_code=404, detail='Manual run not found.')
+  ProjectAccessService(db, context.operator.id).require(run.access_project_id, ProjectAction.TEST)
   if not _can_execute_manual(context, run.assigned_to): raise HTTPException(status_code=403, detail='You do not have permission to perform this action.')
   if run.status != 'IN_PROGRESS': raise HTTPException(status_code=409, detail='Only in-progress runs can be completed.')
   if any(case.status in {'NOT_RUN', 'IN_PROGRESS'} for case in run.cases):
@@ -526,6 +546,7 @@ def complete_manual_run(run_id: int, context: AuthContext = Depends(require_csrf
 def cancel_manual_run(run_id: int, context: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)):
   run = db.get(ManualTestRun, run_id)
   if run is None: raise HTTPException(status_code=404, detail='Manual run not found.')
+  ProjectAccessService(db, context.operator.id).require(run.access_project_id, ProjectAction.TEST)
   if context.operator.role not in {'ADMIN', 'TESTER'}: raise HTTPException(status_code=403, detail='You do not have permission to perform this action.')
   if run.status in {'COMPLETED', 'CANCELLED'}: raise HTTPException(status_code=409, detail='Terminal manual runs cannot be cancelled.')
   run.status = 'CANCELLED'; run.completed_at = datetime.utcnow()
@@ -534,9 +555,10 @@ def cancel_manual_run(run_id: int, context: AuthContext = Depends(require_csrf),
 
 
 @router.get('/manual-test-runs/{run_id}/cases', response_model=list[ManualRunCaseRead])
-def list_manual_run_cases(run_id: int, db: Session = Depends(get_db)):
+def list_manual_run_cases(run_id: int, context: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)):
   run = db.get(ManualTestRun, run_id)
   if run is None: raise HTTPException(status_code=404, detail='Manual run not found.')
+  ProjectAccessService(db, context.operator.id).require(run.access_project_id)
   return run.cases
 
 
@@ -544,6 +566,7 @@ def list_manual_run_cases(run_id: int, db: Session = Depends(get_db)):
 def add_manual_run_cases(run_id: int, payload: ManualRunCaseAdd, context: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)):
   run = db.get(ManualTestRun, run_id)
   if run is None: raise HTTPException(status_code=404, detail='Manual run not found.')
+  ProjectAccessService(db, context.operator.id).require(run.access_project_id, ProjectAction.TEST)
   if run.status != 'PLANNED': raise HTTPException(status_code=409, detail='Cases can only be added to planned runs.')
   if not _can_author(context): raise HTTPException(status_code=403, detail='You do not have permission to perform this action.')
   if not allowed_assignment(context.operator, payload.assigned_to): raise HTTPException(status_code=403, detail='Assignment is not allowed for this operator.')
@@ -556,7 +579,7 @@ def add_manual_run_cases(run_id: int, payload: ManualRunCaseAdd, context: AuthCo
     key = (test_case.id, test_case.current_version)
     if key in existing:
       raise HTTPException(status_code=409, detail='Case/version is already in this manual run.')
-    row = ManualTestRunCase(run_id=run.id, test_case_id=test_case.id, test_case_version=test_case.current_version, assigned_to=payload.assigned_to)
+    row = ManualTestRunCase(access_project_id=run.access_project_id, run_id=run.id, test_case_id=test_case.id, test_case_version=test_case.current_version, assigned_to=payload.assigned_to)
     db.add(row); added.append(row); existing.add(key)
   append_event(db, 'test_run_cases_added', operator_id=context.operator.id, resource_type='MANUAL_TEST_RUN', resource_id=str(run.id), metadata={'added_count': len(added)})
   db.commit()
@@ -567,6 +590,7 @@ def add_manual_run_cases(run_id: int, payload: ManualRunCaseAdd, context: AuthCo
 def update_manual_run_case(run_id: int, run_case_id: int, payload: ManualRunCaseUpdate, context: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)):
   run_case = db.get(ManualTestRunCase, run_case_id)
   if run_case is None or run_case.run_id != run_id: raise HTTPException(status_code=404, detail='Manual run case not found.')
+  ProjectAccessService(db, context.operator.id).require(run_case.access_project_id, ProjectAction.TEST)
   if not _can_execute_manual(context, run_case.assigned_to): raise HTTPException(status_code=403, detail='You do not have permission to perform this action.')
   validate_result_status(payload.status.value, payload.notes)
   now = datetime.utcnow()
@@ -581,6 +605,7 @@ def update_manual_run_case(run_id: int, run_case_id: int, payload: ManualRunCase
 def update_step_result(run_id: int, run_case_id: int, step_number: int, payload: ManualStepResultUpdate, context: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)):
   run_case = db.get(ManualTestRunCase, run_case_id)
   if run_case is None or run_case.run_id != run_id: raise HTTPException(status_code=404, detail='Manual run case not found.')
+  ProjectAccessService(db, context.operator.id).require(run_case.access_project_id, ProjectAction.TEST)
   if not _can_execute_manual(context, run_case.assigned_to): raise HTTPException(status_code=403, detail='You do not have permission to perform this action.')
   version = db.scalar(select(TestCaseVersion).where(TestCaseVersion.test_case_id == run_case.test_case_id, TestCaseVersion.version_number == run_case.test_case_version))
   snapshot = json.loads(version.snapshot_json if version else '{}')
@@ -589,7 +614,7 @@ def update_step_result(run_id: int, run_case_id: int, step_number: int, payload:
   validate_result_status(payload.status.value, payload.notes)
   item = db.scalar(select(ManualStepResult).where(ManualStepResult.run_case_id == run_case_id, ManualStepResult.step_number == step_number))
   if item is None:
-    item = ManualStepResult(run_case_id=run_case_id, step_number=step_number)
+    item = ManualStepResult(access_project_id=run_case.access_project_id, run_case_id=run_case_id, step_number=step_number)
     db.add(item)
   item.status = payload.status.value; item.actual_result = payload.actual_result; item.notes = payload.notes; item.executed_at = datetime.utcnow(); item.executed_by = context.operator.id
   append_event(db, 'manual_step_result_updated', operator_id=context.operator.id, resource_type='MANUAL_STEP_RESULT', resource_id=str(run_case_id), metadata={'step_number': step_number, 'status': item.status})
@@ -600,6 +625,7 @@ def update_step_result(run_id: int, run_case_id: int, step_number: int, payload:
 async def upload_manual_evidence(run_id: int, run_case_id: int, request: Request, filename: str = Query(..., min_length=1, max_length=240), x_csrf_token: str | None = Header(default=None, alias='X-CSRF-Token'), context: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)):
   run_case = db.get(ManualTestRunCase, run_case_id)
   if run_case is None or run_case.run_id != run_id: raise HTTPException(status_code=404, detail='Manual run case not found.')
+  ProjectAccessService(db, context.operator.id).require(run_case.access_project_id, ProjectAction.TEST)
   if not _can_execute_manual(context, run_case.assigned_to): raise HTTPException(status_code=403, detail='You do not have permission to perform this action.')
   content = await request.body()
   class EvidenceFile:
@@ -607,16 +633,17 @@ async def upload_manual_evidence(run_id: int, run_case_id: int, request: Request
       self.filename = name
       self.content_type = content_type
   original, stored, relative, size, digest, evidence_type = store_evidence(EvidenceFile(filename, request.headers.get('content-type')), content)
-  item = ManualEvidence(run_case_id=run_case_id, evidence_type=evidence_type, original_filename=original, stored_filename=stored, relative_path=relative, mime_type=request.headers.get('content-type') or 'application/octet-stream', size_bytes=size, sha256=digest, uploaded_by=context.operator.id)
+  item = ManualEvidence(access_project_id=run_case.access_project_id, run_case_id=run_case_id, evidence_type=evidence_type, original_filename=original, stored_filename=stored, relative_path=relative, mime_type=request.headers.get('content-type') or 'application/octet-stream', size_bytes=size, sha256=digest, uploaded_by=context.operator.id)
   db.add(item)
   append_event(db, 'evidence_uploaded', operator_id=context.operator.id, resource_type='MANUAL_EVIDENCE', metadata={'run_case_id': run_case_id, 'size_bytes': size, 'evidence_type': evidence_type})
   db.commit(); db.refresh(item); return item
 
 
 @router.get('/manual-test-runs/{run_id}/cases/{run_case_id}/evidence', response_model=list[ManualEvidenceRead])
-def list_manual_evidence(run_id: int, run_case_id: int, db: Session = Depends(get_db)):
+def list_manual_evidence(run_id: int, run_case_id: int, context: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)):
   run_case = db.get(ManualTestRunCase, run_case_id)
   if run_case is None or run_case.run_id != run_id: raise HTTPException(status_code=404, detail='Manual run case not found.')
+  ProjectAccessService(db, context.operator.id).require(run_case.access_project_id)
   return list(db.scalars(select(ManualEvidence).where(ManualEvidence.run_case_id == run_case_id, ManualEvidence.deleted_at.is_(None)).order_by(ManualEvidence.created_at.desc())))
 
 
@@ -624,6 +651,7 @@ def list_manual_evidence(run_id: int, run_case_id: int, db: Session = Depends(ge
 def download_manual_evidence(evidence_id: int, context: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)):
   item = db.get(ManualEvidence, evidence_id)
   if item is None or item.deleted_at is not None: raise HTTPException(status_code=404, detail='Evidence not found.')
+  ProjectAccessService(db, context.operator.id).require(item.access_project_id)
   path = evidence_path(item)
   if not path.is_file(): raise HTTPException(status_code=404, detail='Evidence file is unavailable.')
   append_event(db, 'evidence_downloaded', operator_id=context.operator.id, resource_type='MANUAL_EVIDENCE', resource_id=str(item.id)); db.commit()
@@ -636,6 +664,7 @@ def delete_manual_evidence(evidence_id: int, context: AuthContext = Depends(requ
     raise HTTPException(status_code=403, detail='You do not have permission to perform this action.')
   item = db.get(ManualEvidence, evidence_id)
   if item is None or item.deleted_at is not None: raise HTTPException(status_code=404, detail='Evidence not found.')
+  ProjectAccessService(db, context.operator.id).require(item.access_project_id, ProjectAction.TEST)
   item.deleted_at = datetime.utcnow(); item.deleted_by = context.operator.id
   append_event(db, 'evidence_deleted', operator_id=context.operator.id, resource_type='MANUAL_EVIDENCE', resource_id=str(item.id))
   db.commit()
@@ -646,6 +675,7 @@ def delete_manual_evidence(evidence_id: int, context: AuthContext = Depends(requ
 def export_manual_run(run_id: int, format: str = Query('csv', pattern='^(csv|json)$'), context: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)):
   run = db.get(ManualTestRun, run_id)
   if run is None: raise HTTPException(status_code=404, detail='Manual run not found.')
+  ProjectAccessService(db, context.operator.id).require(run.access_project_id)
   rows = [{'run_key': run.run_key, 'case_id': case.test_case_id, 'version': case.test_case_version, 'status': case.status, 'executed_by': case.executed_by} for case in run.cases]
   append_event(db, 'test_export_created', operator_id=context.operator.id, resource_type='MANUAL_TEST_RUN', resource_id=str(run.id), metadata={'format': format, 'rows': len(rows)})
   db.commit()

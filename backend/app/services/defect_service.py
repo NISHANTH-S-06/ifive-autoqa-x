@@ -73,7 +73,7 @@ def can_review(role: str) -> bool:
 
 
 def add_history(db: Session, defect: Defect, event_type: str, operator_id: int, old_value=None, new_value=None, message: str | None = None) -> DefectHistory:
-  item = DefectHistory(defect_id=defect.id, event_type=event_type, old_value=safe_text(old_value, 500), new_value=safe_text(new_value, 500), safe_message=safe_text(message, 500), created_by=operator_id)
+  item = DefectHistory(project_id=defect.access_project_id, defect_id=defect.id, event_type=event_type, old_value=safe_text(old_value, 500), new_value=safe_text(new_value, 500), safe_message=safe_text(message, 500), created_by=operator_id)
   db.add(item)
   return item
 
@@ -104,6 +104,7 @@ def create_defect(db: Session, payload: DefectCreate, reporter_id: int) -> Defec
     if version is None:
       raise HTTPException(status_code=422, detail='Frozen test-case version does not exist.')
   defect = Defect(
+    access_project_id=db.get(TestProject, payload.project_id).access_project_id,
     defect_key=next_defect_key(db),
     title=safe_text(payload.title, 220) or '',
     description=safe_text(payload.description),
@@ -227,9 +228,9 @@ def create_from_run(db: Session, payload: DefectFromRunCreate, reporter_id: int)
   for key, value in keys.items():
     setattr(defect, key, value)
   for item in manual_evidence:
-    db.add(DefectEvidenceLink(defect_id=defect.id, manual_evidence_id=item.id, link_type='SOURCE', created_by=reporter_id))
+    db.add(DefectEvidenceLink(project_id=defect.access_project_id, defect_id=defect.id, manual_evidence_id=item.id, link_type='SOURCE', created_by=reporter_id))
   for item in execution_artifacts:
-    db.add(DefectEvidenceLink(defect_id=defect.id, execution_artifact_id=item.id, link_type='SOURCE', created_by=reporter_id))
+    db.add(DefectEvidenceLink(project_id=defect.access_project_id, defect_id=defect.id, execution_artifact_id=item.id, link_type='SOURCE', created_by=reporter_id))
   add_history(db, defect, 'SOURCE_LINKED', reporter_id, new_value=payload.source_type.value)
   return defect
 
@@ -292,7 +293,7 @@ def transition_defect(db: Session, defect: Defect, target_status: str, payload: 
 
 def add_comment(db: Session, defect: Defect, body: str, operator_id: int) -> DefectComment:
   reject_secret_like(body, 'Defect comment')
-  comment = DefectComment(defect_id=defect.id, body=safe_text(body) or '', created_by=operator_id)
+  comment = DefectComment(project_id=defect.access_project_id, defect_id=defect.id, body=safe_text(body) or '', created_by=operator_id)
   db.add(comment)
   add_history(db, defect, 'COMMENT_ADDED', operator_id)
   defect.updated_at = datetime.utcnow()
@@ -316,11 +317,11 @@ def create_retest(db: Session, defect: Defect, payload, operator: Operator) -> D
     version_number = case.current_version
   manual_run_id = None
   if defect.test_case_id and defect.suite_id:
-    run = ManualTestRun(run_key=next_run_key(db), project_id=defect.project_id, suite_id=defect.suite_id, name=f'Retest {defect.defect_key}', description='Defect retest run', assigned_to=operator.id, created_by=operator.id)
+    run = ManualTestRun(access_project_id=defect.access_project_id, run_key=next_run_key(db), project_id=defect.project_id, suite_id=defect.suite_id, name=f'Retest {defect.defect_key}', description='Defect retest run', assigned_to=operator.id, created_by=operator.id)
     db.add(run); db.flush()
-    db.add(ManualTestRunCase(run_id=run.id, test_case_id=defect.test_case_id, test_case_version=version_number or defect.test_case_version or 1, assigned_to=operator.id))
+    db.add(ManualTestRunCase(access_project_id=defect.access_project_id, run_id=run.id, test_case_id=defect.test_case_id, test_case_version=version_number or defect.test_case_version or 1, assigned_to=operator.id))
     manual_run_id = run.id
-  retest = DefectRetest(defect_id=defect.id, manual_run_id=manual_run_id, test_case_id=defect.test_case_id, test_case_version=version_number, target_id=defect.target_id, target_version=defect.target_version, result_status=result_status, safe_notes=safe_text(payload.notes, 2000), created_by=operator.id)
+  retest = DefectRetest(project_id=defect.access_project_id, defect_id=defect.id, manual_run_id=manual_run_id, test_case_id=defect.test_case_id, test_case_version=version_number, target_id=defect.target_id, target_version=defect.target_version, result_status=result_status, safe_notes=safe_text(payload.notes, 2000), created_by=operator.id)
   db.add(retest)
   old = defect.status
   if retest.result_status == 'PASSED':

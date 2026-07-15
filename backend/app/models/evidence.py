@@ -10,6 +10,7 @@ class Evidence(Base):
   __tablename__ = 'evidence'
 
   id: Mapped[int] = mapped_column(Integer, primary_key=True)
+  project_id: Mapped[int] = mapped_column(ForeignKey('projects.id'), nullable=False, index=True)
   test_run_id: Mapped[int] = mapped_column(ForeignKey('test_runs.id'), nullable=False, index=True)
   test_result_id: Mapped[int | None] = mapped_column(ForeignKey('test_results.id'), nullable=True)
   evidence_type: Mapped[str] = mapped_column(String(30), nullable=False)

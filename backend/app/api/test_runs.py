@@ -17,6 +17,7 @@ from app.security import SafetyViolation, validate_environment
 from app.services.playwright_runner import PROJECT_ROOT, RUNS_ROOT, PlaywrightRunner, RunnerValidationError, get_runner, sanitize_run_code
 from app.services.suite_registry import get_allowed_suite
 from app.services.audit_service import append_event
+from app.services.project_access import ProjectAccessService, ProjectAction
 
 router = APIRouter(prefix='/test-runs', tags=['test-runs'], dependencies=[Depends(get_auth_context)])
 TERMINAL = {TestRunStatus.PASSED.value, TestRunStatus.FAILED.value, TestRunStatus.CANCELLED.value}
@@ -37,13 +38,16 @@ def _validate_local_scope(run) -> None:
 
 
 @router.get('', response_model=list[TestRunRead])
-def list_test_runs(project_id: int | None = None, status: TestRunStatus | None = None, limit: int = Query(default=50, ge=1, le=200), db: Session = Depends(get_db)):
-  return RunRepository(db).list(project_id=project_id, status=status, limit=limit)
+def list_test_runs(project_id: int | None = None, status: TestRunStatus | None = None, limit: int = Query(default=50, ge=1, le=200), context: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)):
+  access = ProjectAccessService(db, context.operator.id)
+  if project_id is not None:
+    access.require(project_id)
+  return RunRepository(db).list(project_id=project_id, status=status, limit=limit, allowed_project_ids=access.project_ids())
 
 
 @router.get('/{run_id}', response_model=TestRunDetail)
-def get_test_run(run_id: int, db: Session = Depends(get_db)):
-  return _get_run(run_id, db)
+def get_test_run(run_id: int, context: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)):
+  run = _get_run(run_id, db); ProjectAccessService(db, context.operator.id).require(run.project_id); return run
 
 
 @router.post('', response_model=TestRunRead, status_code=201)
@@ -56,6 +60,7 @@ def queue_test_run(request: TestRunRequest, context: AuthContext = Depends(requi
   except SafetyViolation as exc: raise HTTPException(status_code=400, detail=str(exc)) from None
   if ProjectRepository(db).get(request.project_id) is None:
     raise HTTPException(status_code=404, detail='Project not found.')
+  ProjectAccessService(db, context.operator.id).require(request.project_id, ProjectAction.TEST)
   run = RunRepository(db).create(request, f'RUN-{uuid4().hex[:12].upper()}', context.operator.id)
   append_event(db, 'TEST_RUN_CREATED', operator_id=context.operator.id, resource_type='TEST_RUN', resource_id=str(run.id), metadata={'suite': run.suite_name, 'environment': run.environment}); db.commit()
   return run
@@ -66,6 +71,7 @@ def approve_test_run(run_id: int, request: ApprovalRequest, context: AuthContext
   if context.operator.role not in ('APPROVER', 'ADMIN'):
     raise HTTPException(status_code=403, detail='You do not have permission to perform this action.')
   run = _get_run(run_id, db)
+  ProjectAccessService(db, context.operator.id).require(run.project_id, ProjectAction.APPROVE)
   if run.created_by_operator_id == context.operator.id:
     append_event(db, 'TEST_RUN_APPROVAL_DENIED', 'DENIED', context.operator.id, resource_type='TEST_RUN', resource_id=str(run.id), metadata={'reason': 'creator_separation'}); db.commit()
     raise HTTPException(status_code=400, detail='Run creators cannot approve their own test runs.')
@@ -83,6 +89,7 @@ def execute_test_run(run_id: int, request: ExecuteRequest, context: AuthContext 
   if context.operator.role not in ('APPROVER', 'ADMIN'):
     raise HTTPException(status_code=403, detail='You do not have permission to perform this action.')
   run = _get_run(run_id, db)
+  ProjectAccessService(db, context.operator.id).require(run.project_id, ProjectAction.APPROVE)
   if not request.confirm_local_execution:
     raise HTTPException(status_code=400, detail='Local execution confirmation is required.')
   if run.status in TERMINAL:
@@ -107,6 +114,7 @@ def cancel_test_run(run_id: int, context: AuthContext = Depends(require_csrf), d
   if context.operator.role not in ('APPROVER', 'ADMIN'):
     raise HTTPException(status_code=403, detail='You do not have permission to perform this action.')
   run = _get_run(run_id, db)
+  ProjectAccessService(db, context.operator.id).require(run.project_id, ProjectAction.APPROVE)
   if run.status not in (TestRunStatus.APPROVED.value, TestRunStatus.RUNNING.value):
     raise HTTPException(status_code=409, detail='Only approved or running test runs can be cancelled.')
   if run.status == TestRunStatus.RUNNING.value:
@@ -117,13 +125,14 @@ def cancel_test_run(run_id: int, context: AuthContext = Depends(require_csrf), d
 
 @router.get('/{run_id}/evidence', response_model=list[EvidenceRead])
 def list_evidence(run_id: int, context: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)):
-  _get_run(run_id, db)
+  run = _get_run(run_id, db); ProjectAccessService(db, context.operator.id).require(run.project_id)
   items = ResultRepository(db).evidence_by_run(run_id); append_event(db, 'EVIDENCE_VIEWED', operator_id=context.operator.id, resource_type='TEST_RUN', resource_id=str(run_id)); db.commit(); return items
 
 
 @router.get('/{run_id}/evidence/{evidence_id}')
 def download_evidence(run_id: int, evidence_id: int, context: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)):
   run = _get_run(run_id, db)
+  ProjectAccessService(db, context.operator.id).require(run.project_id)
   evidence = ResultRepository(db).get_evidence(run_id, evidence_id)
   if evidence is None:
     raise HTTPException(status_code=404, detail='Evidence not found for this test run.')

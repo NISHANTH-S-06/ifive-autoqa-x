@@ -86,6 +86,7 @@ class ExecutionPreflightRead(BaseModel):
 class AutomatedRunRead(BaseModel):
   model_config = ConfigDict(from_attributes=True)
   id: int
+  project_id: int
   run_key: str
   name: str
   description: str | None

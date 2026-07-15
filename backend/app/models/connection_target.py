@@ -18,6 +18,7 @@ class ConnectionTarget(Base):
   )
 
   id: Mapped[int] = mapped_column(Integer, primary_key=True)
+  project_id: Mapped[int] = mapped_column(ForeignKey('projects.id'), nullable=False, index=True)
   target_key: Mapped[str] = mapped_column(String(60), nullable=False, index=True)
   name: Mapped[str] = mapped_column(String(180), nullable=False)
   description: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -67,6 +68,7 @@ class ConnectionTargetVersion(Base):
   )
 
   id: Mapped[int] = mapped_column(Integer, primary_key=True)
+  project_id: Mapped[int] = mapped_column(ForeignKey('projects.id'), nullable=False, index=True)
   target_id: Mapped[int] = mapped_column(ForeignKey('connection_targets.id'), nullable=False, index=True)
   version_number: Mapped[int] = mapped_column(Integer, nullable=False)
   snapshot_json: Mapped[str] = mapped_column(Text, nullable=False)
@@ -88,6 +90,7 @@ class ConnectionCheck(Base):
   )
 
   id: Mapped[int] = mapped_column(Integer, primary_key=True)
+  project_id: Mapped[int] = mapped_column(ForeignKey('projects.id'), nullable=False, index=True)
   check_key: Mapped[str] = mapped_column(String(80), nullable=False, index=True)
   target_id: Mapped[int] = mapped_column(ForeignKey('connection_targets.id'), nullable=False)
   target_version: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -122,6 +125,7 @@ class TargetCredentialProfile(Base):
   )
 
   id: Mapped[int] = mapped_column(Integer, primary_key=True)
+  project_id: Mapped[int] = mapped_column(ForeignKey('projects.id'), nullable=False, index=True)
   target_id: Mapped[int] = mapped_column(ForeignKey('connection_targets.id'), nullable=False)
   profile_name: Mapped[str] = mapped_column(String(120), nullable=False)
   username_hint: Mapped[str | None] = mapped_column(String(160), nullable=True)
