@@ -1,0 +1,8 @@
+{
+  "name": "ifive-autoqa-playwright",
+  "description": "Local Playwright MCP configuration for iFive AutoQA.",
+  "safeMode": true,
+  "baseUrlEnv": "AUTOQA_QA_BASE_URL",
+  "allowedEnvironments": ["local", "qa", "sandbox"]
+}
+

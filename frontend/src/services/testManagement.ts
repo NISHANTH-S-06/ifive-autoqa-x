@@ -1,0 +1,34 @@
+import { apiGet, apiMutation, apiUrl, getCsrfToken } from './api';
+import type { ManualEvidence, ManualRun, ManualRunCase, ManualResultStatus, TestCase, TestCaseList, TestCaseVersion, TestModule, TestProject, TestProjectList, TestSuite } from '../types/testManagement';
+
+export const fetchTestProjects = (query = '') => apiGet<TestProjectList>(`/api/test-projects${query}`);
+export const createTestProject = (value: { name: string; code: string; description?: string }) => apiMutation<TestProject>('POST', '/api/test-projects', value);
+export const archiveTestProject = (id: number) => apiMutation<TestProject>('POST', `/api/test-projects/${id}/archive`, {});
+export const fetchTestModules = (projectId?: number) => apiGet<TestModule[]>(`/api/test-modules${projectId ? `?project_id=${projectId}` : ''}`);
+export const createTestModule = (value: { project_id: number; name: string; code: string; description?: string }) => apiMutation<TestModule>('POST', '/api/test-modules', value);
+export const fetchTestSuites = (projectId?: number, moduleId?: number) => apiGet<TestSuite[]>(`/api/test-suites?${new URLSearchParams({ ...(projectId ? { project_id: String(projectId) } : {}), ...(moduleId ? { module_id: String(moduleId) } : {}) })}`);
+export const createTestSuite = (value: { project_id: number; module_id: number; name: string; code: string; description?: string; suite_type?: string }) => apiMutation<TestSuite>('POST', '/api/test-suites', value);
+export const fetchTestCases = (query = '') => apiGet<TestCaseList>(`/api/test-cases${query}`);
+export const createTestCase = (value: unknown) => apiMutation<TestCase>('POST', '/api/test-cases', value);
+export const updateTestCase = (id: number, value: unknown) => apiMutation<TestCase>('PATCH', `/api/test-cases/${id}`, value);
+export const submitTestCase = (id: number) => apiMutation<TestCase>('POST', `/api/test-cases/${id}/submit`, {});
+export const approveTestCase = (id: number) => apiMutation<TestCase>('POST', `/api/test-cases/${id}/approve`, {});
+export const rejectTestCase = (id: number, reason: string) => apiMutation<TestCase>('POST', `/api/test-cases/${id}/reject`, { reason });
+export const reviseTestCase = (id: number, reason: string) => apiMutation<TestCase>('POST', `/api/test-cases/${id}/revision`, { reason });
+export const archiveTestCase = (id: number) => apiMutation<TestCase>('POST', `/api/test-cases/${id}/archive`, {});
+export const fetchTestCaseVersions = (id: number) => apiGet<TestCaseVersion[]>(`/api/test-cases/${id}/versions`);
+export const fetchManualRuns = () => apiGet<ManualRun[]>('/api/manual-test-runs');
+export const createManualRun = (value: { project_id: number; suite_id: number; name: string; assigned_to?: number | null; case_ids: number[] }) => apiMutation<ManualRun>('POST', '/api/manual-test-runs', value);
+export const startManualRun = (id: number) => apiMutation<ManualRun>('POST', `/api/manual-test-runs/${id}/start`, {});
+export const completeManualRun = (id: number) => apiMutation<ManualRun>('POST', `/api/manual-test-runs/${id}/complete`, {});
+export const cancelManualRun = (id: number) => apiMutation<ManualRun>('POST', `/api/manual-test-runs/${id}/cancel`, {});
+export const fetchManualRunCases = (runId: number) => apiGet<ManualRunCase[]>(`/api/manual-test-runs/${runId}/cases`);
+export const updateManualRunCase = (runId: number, runCaseId: number, value: { status: ManualResultStatus; actual_result?: string; notes?: string }) => apiMutation<ManualRunCase>('PATCH', `/api/manual-test-runs/${runId}/cases/${runCaseId}`, value);
+export const updateManualStep = (runId: number, runCaseId: number, stepNumber: number, value: { status: ManualResultStatus; actual_result?: string; notes?: string }) => apiMutation('PATCH', `/api/manual-test-runs/${runId}/cases/${runCaseId}/steps/${stepNumber}`, value);
+export const fetchManualEvidence = (runId: number, runCaseId: number) => apiGet<ManualEvidence[]>(`/api/manual-test-runs/${runId}/cases/${runCaseId}/evidence`);
+export const uploadManualEvidence = async (runId: number, runCaseId: number, file: File) => {
+  const response = await fetch(apiUrl(`/api/manual-test-runs/${runId}/cases/${runCaseId}/evidence?filename=${encodeURIComponent(file.name)}`), { method: 'POST', credentials: 'include', headers: { 'Content-Type': file.type || 'application/octet-stream', 'X-CSRF-Token': getCsrfToken() }, body: await file.arrayBuffer() });
+  if (!response.ok) throw new Error((await response.json().catch(() => null))?.detail ?? 'Evidence upload failed.');
+  return response.json() as Promise<ManualEvidence>;
+};
+export const evidenceDownloadUrl = (id: number) => apiUrl(`/api/manual-evidence/${id}/download`);

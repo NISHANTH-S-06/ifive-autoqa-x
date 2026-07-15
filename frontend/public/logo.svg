@@ -1,0 +1,7 @@
+<svg width="180" height="48" viewBox="0 0 180 48" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title">
+  <title id="title">iFive AutoQA</title>
+  <rect width="48" height="48" rx="12" fill="#C2185B"/>
+  <path d="M15 16h18l-6 6H15v-6Zm7 10h18l-6 6H22v-6Zm7 10h10l-5 5h-5v-5Z" fill="white"/>
+  <text x="62" y="29" fill="#10213F" font-family="Arial, sans-serif" font-size="21" font-weight="700">iFive AutoQA</text>
+</svg>
+

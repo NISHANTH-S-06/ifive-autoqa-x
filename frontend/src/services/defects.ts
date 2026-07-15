@@ -1,0 +1,23 @@
+import { apiGet, apiMutation } from './api';
+import type { Defect, DefectComment, DefectConfirmation, DefectEvidenceLink, DefectHistory, DefectList, DefectRetest, DefectTraceability } from '../types/defect';
+
+export const fetchDefects = (query = '') => apiGet<DefectList>(`/api/defects${query}`);
+export const fetchDefect = (id: number) => apiGet<Defect>(`/api/defects/${id}`);
+export const createDefect = (value: unknown) => apiMutation<Defect>('POST', '/api/defects', value);
+export const createDefectFromRun = (value: unknown) => apiMutation<Defect | DefectConfirmation>('POST', '/api/defects/from-run', value);
+export const updateDefect = (id: number, value: unknown) => apiMutation<Defect>('PATCH', `/api/defects/${id}`, value);
+export const triageDefect = (id: number) => apiMutation<Defect>('POST', `/api/defects/${id}/triage`, {});
+export const assignDefect = (id: number, assignedTo: number) => apiMutation<Defect>('POST', `/api/defects/${id}/assign`, { assigned_to: assignedTo });
+export const startDefect = (id: number) => apiMutation<Defect>('POST', `/api/defects/${id}/start`, {});
+export const fixDefect = (id: number) => apiMutation<Defect>('POST', `/api/defects/${id}/fix`, {});
+export const readyForRetest = (id: number) => apiMutation<Defect>('POST', `/api/defects/${id}/ready-for-retest`, {});
+export const reopenDefect = (id: number, reason: string) => apiMutation<Defect>('POST', `/api/defects/${id}/reopen`, { reason });
+export const closeDefect = (id: number, resolution: string) => apiMutation<Defect>('POST', `/api/defects/${id}/close`, { resolution });
+export const rejectDefect = (id: number, reason: string) => apiMutation<Defect>('POST', `/api/defects/${id}/reject`, { reason });
+export const duplicateDefect = (id: number, duplicateOfDefectId: number) => apiMutation<Defect>('POST', `/api/defects/${id}/duplicate`, { duplicate_of_defect_id: duplicateOfDefectId });
+export const fetchDefectComments = (id: number) => apiGet<DefectComment[]>(`/api/defects/${id}/comments`);
+export const addDefectComment = (id: number, body: string) => apiMutation<DefectComment>('POST', `/api/defects/${id}/comments`, { body });
+export const fetchDefectHistory = (id: number) => apiGet<DefectHistory[]>(`/api/defects/${id}/history`);
+export const fetchDefectEvidence = (id: number) => apiGet<DefectEvidenceLink[]>(`/api/defects/${id}/evidence`);
+export const createDefectRetest = (id: number, value: { result_status: string; notes?: string; use_latest_approved_version?: boolean }) => apiMutation<DefectRetest>('POST', `/api/defects/${id}/retest`, value);
+export const fetchDefectTraceability = (id: number) => apiGet<DefectTraceability>(`/api/defects/${id}/traceability`);

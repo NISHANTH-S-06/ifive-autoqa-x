@@ -1,0 +1,13 @@
+[
+  {
+    "role": "qa_admin",
+    "username": "qa.admin@example.local",
+    "environment": "qa"
+  },
+  {
+    "role": "readonly_user",
+    "username": "readonly@example.local",
+    "environment": "qa"
+  }
+]
+

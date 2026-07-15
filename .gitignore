@@ -1,0 +1,78 @@
+# Dependencies
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.pytest_tmp*/
+.mypy_cache/
+.ruff_cache/
+
+# Environment
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+auth.json
+storageState.json
+
+# Build outputs
+dist/
+build/
+coverage/
+.coverage
+.coverage.*
+htmlcov/
+*.tsbuildinfo
+
+# Playwright outputs
+qa/reports/html/
+qa/reports/traces/
+qa/reports/screenshots/
+qa/reports/videos/
+qa/reports/logs/
+qa/reports/
+**/artifacts/
+**/screenshots/
+**/videos/
+**/traces/
+**/reports/
+**/exports/
+**/backups/
+!qa/tests/reports/
+!qa/tests/reports/**
+test-results/
+playwright-report/
+runtime/
+release/
+!qa/tests/release/
+!qa/tests/release/**
+
+# Local data
+*.db
+*.sqlite
+*.sqlite3
+*.db-wal
+*.db-shm
+backend/data/
+
+# Logs, process state, and temporary files
+*.log
+*.pid
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+~$*
+
+# OS and editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

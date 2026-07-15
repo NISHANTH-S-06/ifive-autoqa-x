@@ -1,0 +1,13 @@
+[
+  {
+    "product": "iFive ERP",
+    "key": "erp",
+    "modules": ["Customer", "Vendor", "Inventory", "Purchase", "Sales"]
+  },
+  {
+    "product": "iFive HRMS",
+    "key": "hrms",
+    "modules": ["Employee", "Attendance", "Leave", "Shift"]
+  }
+]
+

@@ -1,0 +1,21 @@
+import { apiGet, apiMutation } from './api';
+import type { CheckMethod, ConnectionCheck, ConnectionTarget, ConnectionTargetList, ConnectionTargetVersion, CredentialProfile } from '../types/connectionTarget';
+
+export const fetchConnectionTargets = (query = '') => apiGet<ConnectionTargetList>(`/api/connection-targets${query}`);
+export const fetchConnectionTarget = (id: number) => apiGet<ConnectionTarget>(`/api/connection-targets/${id}`);
+export const createConnectionTarget = (value: unknown) => apiMutation<ConnectionTarget>('POST', '/api/connection-targets', value);
+export const updateConnectionTarget = (id: number, value: unknown) => apiMutation<ConnectionTarget>('PATCH', `/api/connection-targets/${id}`, value);
+export const submitConnectionTarget = (id: number) => apiMutation<ConnectionTarget>('POST', `/api/connection-targets/${id}/submit`, {});
+export const approveConnectionTarget = (id: number) => apiMutation<ConnectionTarget>('POST', `/api/connection-targets/${id}/approve`, {});
+export const rejectConnectionTarget = (id: number, reason: string) => apiMutation<ConnectionTarget>('POST', `/api/connection-targets/${id}/reject`, { reason });
+export const reviseConnectionTarget = (id: number, reason: string) => apiMutation<ConnectionTarget>('POST', `/api/connection-targets/${id}/revision`, { reason });
+export const disableConnectionTarget = (id: number) => apiMutation<ConnectionTarget>('POST', `/api/connection-targets/${id}/disable`, {});
+export const archiveConnectionTarget = (id: number) => apiMutation<ConnectionTarget>('POST', `/api/connection-targets/${id}/archive`, {});
+export const submitExecutionTarget = (id: number) => apiMutation<ConnectionTarget>('POST', `/api/connection-targets/${id}/execution-submit`, {});
+export const approveExecutionTarget = (id: number) => apiMutation<ConnectionTarget>('POST', `/api/connection-targets/${id}/execution-approve`, {});
+export const disableExecutionTarget = (id: number) => apiMutation<ConnectionTarget>('POST', `/api/connection-targets/${id}/execution-disable`, {});
+export const fetchTargetVersions = (id: number) => apiGet<ConnectionTargetVersion[]>(`/api/connection-targets/${id}/versions`);
+export const fetchConnectionChecks = (id: number) => apiGet<ConnectionCheck[]>(`/api/connection-targets/${id}/checks`);
+export const runConnectionCheck = (id: number, method: CheckMethod, probe_path: string) => apiMutation<ConnectionCheck>('POST', `/api/connection-targets/${id}/checks`, { method, probe_path });
+export const fetchCredentialProfiles = (id: number) => apiGet<CredentialProfile[]>(`/api/connection-targets/${id}/credential-profiles`);
+export const createCredentialProfile = (id: number, value: unknown) => apiMutation<CredentialProfile>('POST', `/api/connection-targets/${id}/credential-profiles`, value);
