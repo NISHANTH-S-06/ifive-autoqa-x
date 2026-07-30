@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { motion } from 'framer-motion';
 import {
   LayoutDashboard, FileInput, FileCode, CheckSquare, PlayCircle,
@@ -100,7 +100,7 @@ interface NavItem {
   label: string;
   icon: React.ElementType;
   badge?: number;
-  roles?: OperatorRole[]; // if undefined → visible to all roles
+  roles?: OperatorRole[]; // if undefined â†’ visible to all roles
 }
 
 interface SidebarProps {
@@ -123,7 +123,7 @@ const ROLE_LABELS: Record<OperatorRole, { label: string; color: string }> = {
 };
 
 const ALL_NAV_ITEMS: NavItem[] = [
-  // ── Dashboard & AI QA Brain Command Center (all roles) ─────────────────
+  // â”€â”€ Dashboard & AI QA Brain Command Center (all roles) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { key: 'release-war-room', label: 'Release War Room', icon: ShieldCheck, roles: ['ADMIN', 'PROJECT_MANAGER', 'APPROVER'] },
   { key: 'release-command-center', label: 'Release Command Center', icon: ShieldCheck, roles: ['ADMIN', 'PROJECT_MANAGER', 'APPROVER'] },
@@ -135,7 +135,7 @@ const ALL_NAV_ITEMS: NavItem[] = [
   { key: 'optimization-center', label: 'Optimization Center', icon: Settings },
   { key: 'executive-analytics', label: 'Executive Analytics', icon: BarChart3, roles: ['ADMIN', 'PROJECT_MANAGER', 'APPROVER'] },
 
-  // ── Zero-Code Ecosystem ───────────────────────────────────────────────
+  // â”€â”€ Zero-Code Ecosystem â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   { key: 'project-onboarding', label: 'Onboarding Wizard', icon: Globe },
   { key: 'zero-code-studio', label: 'Zero-Code Test Studio', icon: Layers2 },
   { key: 'autonomous-test-lab', label: 'Autonomous Test Lab', icon: Monitor },
@@ -143,56 +143,8 @@ const ALL_NAV_ITEMS: NavItem[] = [
   { key: 'plugin-marketplace', label: 'Plugin Marketplace', icon: Package },
   { key: 'enterprise-integrations', label: 'Enterprise Integrations', icon: Globe2 },
 
-  // ── Phase 13: Enterprise Autonomous AI QA Cloud Platform ───────────────
-  { key: 'executive-command-center', label: 'Global Command Center', icon: ShieldCheck, roles: ['ADMIN', 'PROJECT_MANAGER', 'APPROVER'] },
-  { key: 'execution-center', label: 'Execution Center', icon: Monitor },
-  { key: 'browser-farm', label: 'Cloud Browser Farm', icon: Layers2 },
-  { key: 'worker-management', label: 'AI Optimizer & Workers', icon: Brain },
-  { key: 'cloud-dashboard', label: 'Cloud Dashboard', icon: Globe2, roles: ['ADMIN', 'PROJECT_MANAGER'] },
-  { key: 'analytics-center', label: 'Analytics Center', icon: BarChart3, roles: ['ADMIN', 'PROJECT_MANAGER', 'APPROVER'] },
-  { key: 'release-governance', label: 'Release Governance', icon: ShieldCheck, roles: ['ADMIN', 'PROJECT_MANAGER', 'APPROVER'] },
-  { key: 'compliance-center', label: 'Compliance Center', icon: FileCheck2, roles: ['ADMIN', 'PROJECT_MANAGER', 'APPROVER'] },
-  { key: 'security-center', label: 'Security Center', icon: ShieldCheck, roles: ['ADMIN'] },
-  { key: 'marketplace-center', label: 'Enterprise Marketplace', icon: Package },
-  { key: 'devops-center', label: 'DevOps Center', icon: GitBranch, roles: ['ADMIN', 'PROJECT_MANAGER', 'DEVELOPER'] },
-  { key: 'observability', label: 'Observability Platform', icon: Activity, roles: ['ADMIN', 'PROJECT_MANAGER', 'DEVELOPER'] },
-
-  // ── Phase 14: Enterprise Autonomous AI QA Operating System (AI QA OS) ──
-  { key: 'enterprise-brain', label: 'AI Enterprise Brain', icon: Brain },
-  { key: 'workflow-composer', label: 'Workflow Composer', icon: GitBranch },
-  { key: 'business-process-center', label: 'Business Process Hub', icon: Building2 },
-  { key: 'incident-command-center', label: 'Incident Commander', icon: ShieldCheck, roles: ['ADMIN', 'PROJECT_MANAGER', 'DEVELOPER', 'APPROVER'] },
-  { key: 'forecast-center', label: 'AI Forecast Center', icon: BarChart3, roles: ['ADMIN', 'PROJECT_MANAGER', 'APPROVER'] },
-  { key: 'governance-center', label: 'Governance Center', icon: FileCheck2, roles: ['ADMIN', 'PROJECT_MANAGER'] },
-  { key: 'knowledge-universe', label: 'Knowledge Universe', icon: FolderGit2 },
-  { key: 'executive-advisor', label: 'AI Executive Advisor', icon: Bot, roles: ['ADMIN', 'PROJECT_MANAGER', 'APPROVER'] },
-  { key: 'ai-agents-marketplace', label: 'AI Agents Marketplace', icon: Package },
-  { key: 'optimization-center-v2', label: 'Optimization Engine V2', icon: Settings, roles: ['ADMIN', 'PROJECT_MANAGER', 'DEVELOPER'] },
-
-  // ── Phase 15: Autonomous Enterprise Software Quality Intelligence Platform ──
-  { key: 'software-graph', label: 'Software Intel Graph', icon: FolderGit2 },
-  { key: 'change-impact-center', label: 'Change Impact Center', icon: Activity },
-  { key: 'code-review-center', label: 'AI Code Reviewer', icon: FileCheck2 },
-  { key: 'coverage-intelligence', label: 'Coverage Intelligence', icon: BarChart3 },
-  { key: 'release-intelligence', label: 'Release Intelligence', icon: ShieldCheck, roles: ['ADMIN', 'PROJECT_MANAGER', 'APPROVER'] },
-  { key: 'defect-intelligence', label: 'Defect Intelligence', icon: Package },
-  { key: 'engineering-analytics', label: 'Engineering Analytics', icon: BarChart3, roles: ['ADMIN', 'PROJECT_MANAGER', 'DEVELOPER'] },
-  { key: 'knowledge-lake', label: 'Knowledge Lake', icon: Building2 },
-  { key: 'mission-control', label: 'Executive Mission Control', icon: Brain, roles: ['ADMIN', 'PROJECT_MANAGER', 'APPROVER'] },
-  { key: 'pair-qa-engineer', label: 'AI Pair QA Engineer', icon: Bot },
-
-  // ── Phase 16: Autonomous Enterprise Software Engineering Intelligence Platform ──
-  { key: 'knowledge-lake-v2', label: 'Knowledge Lake V2', icon: FolderGit2 },
-  { key: 'requirement-center', label: 'Requirement Intelligence', icon: FileCheck2 },
-  { key: 'traceability-matrix', label: 'Traceability Matrix', icon: GitBranch },
-  { key: 'architecture-intelligence', label: 'Architecture Intelligence', icon: Building2 },
-  { key: 'code-quality-governor', label: 'Code Quality Governor', icon: ShieldCheck },
-  { key: 'release-certification', label: 'Release Certification', icon: FileCheck2, roles: ['ADMIN', 'PROJECT_MANAGER', 'APPROVER'] },
-  { key: 'observability-center', label: 'Observability Center', icon: Activity, roles: ['ADMIN', 'PROJECT_MANAGER', 'DEVELOPER'] },
-  { key: 'customer-experience', label: 'Customer Experience', icon: Users },
-  { key: 'policy-center', label: 'Policy Engine', icon: Settings, roles: ['ADMIN', 'PROJECT_MANAGER'] },
-  { key: 'sdlc-center', label: 'Autonomous SDLC', icon: Monitor },
-  { key: 'executive-decision-center', label: 'Executive Decisions', icon: Bot, roles: ['ADMIN', 'PROJECT_MANAGER', 'APPROVER'] },
+  // Phase 13-16 "Enterprise Universe" nav items archived on 2026-07-30
+  // (see archive/backend_api_phase13-16/ and archive/frontend_pages_phase13-16/).
 
   { key: 'digital-qa', label: 'AI Digital QA Engineer', icon: Brain },
   { key: 'executive-intelligence', label: 'Executive Intelligence', icon: BarChart3, roles: ['ADMIN', 'PROJECT_MANAGER', 'APPROVER'] },
@@ -203,7 +155,7 @@ const ALL_NAV_ITEMS: NavItem[] = [
   { key: 'enterprise-discovery', label: 'AI Flow Discovery', icon: Globe, roles: ['ADMIN', 'TESTER', 'PROJECT_MANAGER', 'APPROVER'] },
   { key: 'enterprise-mgmt', label: 'Enterprise Setup', icon: Building2, roles: ['ADMIN', 'PROJECT_MANAGER'] },
 
-  // ── Company Task Workflow ──────────────────────────────────────────────
+  // â”€â”€ Company Task Workflow â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   {
     key: 'company-tasks',
     label: 'Company Tasks',
@@ -217,7 +169,7 @@ const ALL_NAV_ITEMS: NavItem[] = [
     roles: ['DEVELOPER', 'ADMIN'],
   },
 
-  // ── QA / Tester workflow ───────────────────────────────────────────────
+  // â”€â”€ QA / Tester workflow â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   {
     key: 'approval-queue',
     label: 'Approval Queue',
@@ -250,7 +202,7 @@ const ALL_NAV_ITEMS: NavItem[] = [
     roles: ['ADMIN', 'TESTER', 'APPROVER', 'DEVELOPER'],
   },
 
-  // ── Project / Test Management (PM + Admin) ─────────────────────────────
+  // â”€â”€ Project / Test Management (PM + Admin) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   {
     key: 'projects',
     label: 'Projects',
@@ -276,7 +228,7 @@ const ALL_NAV_ITEMS: NavItem[] = [
     roles: ['ADMIN', 'TESTER', 'APPROVER'],
   },
 
-  // ── Reports (PM, Tester, Viewer, Admin) ───────────────────────────────
+  // â”€â”€ Reports (PM, Tester, Viewer, Admin) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   {
     key: 'reports',
     label: 'Reports',
@@ -284,7 +236,7 @@ const ALL_NAV_ITEMS: NavItem[] = [
     roles: ['ADMIN', 'PROJECT_MANAGER', 'TESTER', 'APPROVER', 'VIEWER'],
   },
 
-  // ── Admin-only ─────────────────────────────────────────────────────────
+  // â”€â”€ Admin-only â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   {
     key: 'schedules',
     label: 'Local Schedules',

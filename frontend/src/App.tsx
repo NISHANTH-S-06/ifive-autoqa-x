@@ -1,4 +1,4 @@
-import React, { type FormEvent, useEffect, useRef, useState } from 'react';
+﻿import React, { type FormEvent, useEffect, useRef, useState } from 'react';
 import { AuthContext } from './authContext';
 import { AppShell } from './layouts/AppShell';
 import type { ModuleKey } from './components/layout/Sidebar';
@@ -47,48 +47,6 @@ import { TestDataFactoryPage } from './pages/TestDataFactoryPage';
 import { ReleaseWarRoomPage } from './pages/ReleaseWarRoomPage';
 import { PluginMarketplacePage } from './pages/PluginMarketplacePage';
 import { EnterpriseIntegrationsPage } from './pages/EnterpriseIntegrationsPage';
-import { ExecutionCenterPage } from './pages/ExecutionCenterPage';
-import { BrowserFarmPage } from './pages/BrowserFarmPage';
-import { WorkerManagementPage } from './pages/WorkerManagementPage';
-import { CloudDashboardPage } from './pages/CloudDashboardPage';
-import { AnalyticsCenterPage } from './pages/AnalyticsCenterPage';
-import { ComplianceCenterPage } from './pages/ComplianceCenterPage';
-import { ReleaseGovernancePage } from './pages/ReleaseGovernancePage';
-import { SecurityCenterPage } from './pages/SecurityCenterPage';
-import { MarketplaceCenterPage } from './pages/MarketplaceCenterPage';
-import { DevOpsCenterPage } from './pages/DevOpsCenterPage';
-import { ObservabilityPage } from './pages/ObservabilityPage';
-import { ExecutiveCommandCenterPage } from './pages/ExecutiveCommandCenterPage';
-import { EnterpriseBrainPage } from './pages/EnterpriseBrainPage';
-import { WorkflowComposerPage } from './pages/WorkflowComposerPage';
-import { BusinessProcessCenterPage } from './pages/BusinessProcessCenterPage';
-import { IncidentCommandCenterPage } from './pages/IncidentCommandCenterPage';
-import { ForecastCenterPage } from './pages/ForecastCenterPage';
-import { GovernanceCenterPage } from './pages/GovernanceCenterPage';
-import { EnterpriseKnowledgeUniversePage } from './pages/EnterpriseKnowledgeUniversePage';
-import { ExecutiveAdvisorPage } from './pages/ExecutiveAdvisorPage';
-import { AIAgentsMarketplacePage } from './pages/AIAgentsMarketplacePage';
-import { OptimizationCenterV2Page } from './pages/OptimizationCenterV2Page';
-import { SoftwareGraphPage } from './pages/SoftwareGraphPage';
-import { ChangeImpactCenterPage } from './pages/ChangeImpactCenterPage';
-import { CodeReviewCenterPage } from './pages/CodeReviewCenterPage';
-import { CoverageIntelligencePage } from './pages/CoverageIntelligencePage';
-import { ReleaseIntelligencePage } from './pages/ReleaseIntelligencePage';
-import { DefectIntelligencePage } from './pages/DefectIntelligencePage';
-import { EngineeringAnalyticsPage } from './pages/EngineeringAnalyticsPage';
-import { KnowledgeLakePage } from './pages/KnowledgeLakePage';
-import { MissionControlPage } from './pages/MissionControlPage';
-import { PairQAEngineerPage } from './pages/PairQAEngineerPage';
-import { KnowledgeLakeV2Page } from './pages/KnowledgeLakeV2Page';
-import { RequirementCenterPage } from './pages/RequirementCenterPage';
-import { TraceabilityMatrixPage } from './pages/TraceabilityMatrixPage';
-import { ArchitectureIntelligencePage } from './pages/ArchitectureIntelligencePage';
-import { CodeQualityGovernorPage } from './pages/CodeQualityGovernorPage';
-import { ReleaseCertificationPage } from './pages/ReleaseCertificationPage';
-import { ObservabilityCenterPage } from './pages/ObservabilityCenterPage';
-import { CustomerExperiencePage } from './pages/CustomerExperiencePage';
-import { PolicyCenterPage } from './pages/PolicyCenterPage';
-import { SDLCCenterPage, ExecutiveDecisionCenterPage } from './pages/SDLCCenterPage';
 
 export default function App() {
   const [operator, setOperator] = useState<Operator | null>(null);
@@ -200,7 +158,7 @@ export default function App() {
                 autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
               />
             </div>
 
@@ -247,49 +205,6 @@ export default function App() {
       case 'data-factory': return <TestDataFactoryPage />;
       case 'plugin-marketplace': return <PluginMarketplacePage />;
       case 'enterprise-integrations': return <EnterpriseIntegrationsPage />;
-      case 'execution-center': return <ExecutionCenterPage />;
-      case 'browser-farm': return <BrowserFarmPage />;
-      case 'worker-management': return <WorkerManagementPage />;
-      case 'cloud-dashboard': return <CloudDashboardPage />;
-      case 'analytics-center': return <AnalyticsCenterPage />;
-      case 'compliance-center': return <ComplianceCenterPage />;
-      case 'release-governance': return <ReleaseGovernancePage />;
-      case 'security-center': return <SecurityCenterPage />;
-      case 'marketplace-center': return <MarketplaceCenterPage />;
-      case 'devops-center': return <DevOpsCenterPage />;
-      case 'observability': return <ObservabilityPage />;
-      case 'executive-command-center': return <ExecutiveCommandCenterPage />;
-      case 'enterprise-brain': return <EnterpriseBrainPage />;
-      case 'workflow-composer': return <WorkflowComposerPage />;
-      case 'business-process-center': return <BusinessProcessCenterPage />;
-      case 'incident-command-center': return <IncidentCommandCenterPage />;
-      case 'forecast-center': return <ForecastCenterPage />;
-      case 'governance-center': return <GovernanceCenterPage />;
-      case 'knowledge-universe': return <EnterpriseKnowledgeUniversePage />;
-      case 'executive-advisor': return <ExecutiveAdvisorPage />;
-      case 'ai-agents-marketplace': return <AIAgentsMarketplacePage />;
-      case 'optimization-center-v2': return <OptimizationCenterV2Page />;
-      case 'software-graph': return <SoftwareGraphPage />;
-      case 'change-impact-center': return <ChangeImpactCenterPage />;
-      case 'code-review-center': return <CodeReviewCenterPage />;
-      case 'coverage-intelligence': return <CoverageIntelligencePage />;
-      case 'release-intelligence': return <ReleaseIntelligencePage />;
-      case 'defect-intelligence': return <DefectIntelligencePage />;
-      case 'engineering-analytics': return <EngineeringAnalyticsPage />;
-      case 'knowledge-lake': return <KnowledgeLakePage />;
-      case 'mission-control': return <MissionControlPage />;
-      case 'pair-qa-engineer': return <PairQAEngineerPage />;
-      case 'knowledge-lake-v2': return <KnowledgeLakeV2Page />;
-      case 'requirement-center': return <RequirementCenterPage />;
-      case 'traceability-matrix': return <TraceabilityMatrixPage />;
-      case 'architecture-intelligence': return <ArchitectureIntelligencePage />;
-      case 'code-quality-governor': return <CodeQualityGovernorPage />;
-      case 'release-certification': return <ReleaseCertificationPage />;
-      case 'observability-center': return <ObservabilityCenterPage />;
-      case 'customer-experience': return <CustomerExperiencePage />;
-      case 'policy-center': return <PolicyCenterPage />;
-      case 'sdlc-center': return <SDLCCenterPage />;
-      case 'executive-decision-center': return <ExecutiveDecisionCenterPage />;
       case 'digital-qa': return <DigitalQAEngineerPage />;
       case 'executive-intelligence': return <ExecutiveIntelligenceDashboardPage />;
       case 'continuous-monitoring': return <ContinuousMonitoringPage />;
