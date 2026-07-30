@@ -28,7 +28,7 @@ export default defineConfig({
     video: 'off',
   },
   webServer: skipWebServer ? undefined : {
-    command: '..\\backend\\.venv\\Scripts\\python.exe -m http.server 5173 --bind 127.0.0.1 --directory ..\\frontend\\dist',
+    command: 'cd ..\\frontend && npm run dev',
     url: baseURL,
     reuseExistingServer: true,
     timeout: 30_000,

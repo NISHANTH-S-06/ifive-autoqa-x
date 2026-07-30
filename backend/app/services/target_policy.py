@@ -155,12 +155,12 @@ def is_address_allowed(address: str, environment: str, host: str) -> bool:
     ip = ipaddress.ip_address(address)
   except ValueError:
     return False
+  if ip.is_loopback:
+    return environment == 'LOCAL' and lowered_host in {'localhost', '127.0.0.1', '::1'} | ({address} if address in {'127.0.0.1', '::1'} else set())
   if ip.is_unspecified or ip.is_multicast or ip.is_link_local or ip.is_reserved:
     return False
   if ip.version == 4 and address == '255.255.255.255':
     return False
-  if ip.is_loopback:
-    return environment == 'LOCAL' and lowered_host in {'localhost', '127.0.0.1', '::1'} | ({address} if address in {'127.0.0.1', '::1'} else set())
   return True
 
 

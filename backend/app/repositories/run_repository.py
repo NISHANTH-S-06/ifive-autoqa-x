@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import func, select, update
+from sqlalchemy import case, func, select, update
 from sqlalchemy.orm import Session
 
 from app.models.test_run import TestRun
@@ -57,10 +57,10 @@ class RunRepository:
   def summary_counts(self, project_ids: tuple[int, ...] | None = None) -> dict[str, int | float]:
     statement = select(
       func.count(TestRun.id).label('total_runs'),
-      func.sum(func.IF(TestRun.status == TestRunStatus.PASSED.value, 1, 0)).label('passed_runs'),
-      func.sum(func.IF(TestRun.status == TestRunStatus.FAILED.value, 1, 0)).label('failed_runs'),
-      func.sum(func.IF(TestRun.status == TestRunStatus.QUEUED.value, 1, 0)).label('queued_runs'),
-      func.sum(func.IF(TestRun.status == TestRunStatus.RUNNING.value, 1, 0)).label('running_runs'),
+      func.sum(case((TestRun.status == TestRunStatus.PASSED.value, 1), else_=0)).label('passed_runs'),
+      func.sum(case((TestRun.status == TestRunStatus.FAILED.value, 1), else_=0)).label('failed_runs'),
+      func.sum(case((TestRun.status == TestRunStatus.QUEUED.value, 1), else_=0)).label('queued_runs'),
+      func.sum(case((TestRun.status == TestRunStatus.RUNNING.value, 1), else_=0)).label('running_runs'),
       func.sum(TestRun.total_tests).label('total_tests'),
       func.sum(TestRun.duration_seconds).label('total_duration')
     )

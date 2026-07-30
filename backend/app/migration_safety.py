@@ -18,6 +18,7 @@ from app.migration_config import make_alembic_config, sqlite_path_for_url, valid
 
 BASELINE_REVISION = '20260715_01'
 PROJECT_ISOLATION_REVISION = '20260715_02'
+TASK_CONNECTOR_REVISION = '20260721_03'
 
 
 def assert_database_at_head(database_url: str, *, allow_active: bool = False) -> str:

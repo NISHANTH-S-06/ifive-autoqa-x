@@ -202,6 +202,8 @@ def test_cross_project_lists_ids_artifacts_and_relationships_are_isolated(auth_c
   targets = auth_client.get('/api/connection-targets').json()['items']
   assert {item['id'] for item in targets} == {target_a.id}
   assert run_b.id not in {item['id'] for item in auth_client.get('/api/automated-runs').json()['items']}
+  assert auth_client.get(f'/api/automated-runs/{run_b.id}').status_code == 404
+  assert auth_client.get(f'/api/automated-runs/{run_b.id}/steps').status_code == 404
   assert defect_b.id not in {item['id'] for item in auth_client.get('/api/defects').json()['items']}
   assert report_b.id not in {item['id'] for item in auth_client.get('/api/reports/exports').json()['items']}
   assert auth_client.get(f'/api/connection-targets/{target_b.id}').status_code == 404

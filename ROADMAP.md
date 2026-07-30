@@ -30,9 +30,11 @@
 - Generate test plans and candidate Playwright tests.
 - Add human approval flow for generated and healed tests.
 
-## Milestone 6 - Reporting and Safety Hardening
+## Milestone 6.6 - Complete Master UI Migration, Design System & UX Hardening (COMPLETED)
 
-- Import Playwright results into the backend.
-- Map failures to defects and owners.
-- Add audit history and safety policy checks.
-
+- Unified Master Design System tokens and reusable UI primitives (`Button`, `Input`, `Select`, `FormField`, `Modal`, `Drawer`, `JSONViewer`).
+- Full page-level migration across all 13 core modules with zero raw/default browser controls.
+- Removed internal phase/stage terminology; replaced with domain-driven titles.
+- Truthful zero-state handling, status overflow protection, and friendly status mappings.
+- Root-caused and fixed Settings API failure.
+- Automated Playwright master UI acceptance suite (`phase6-6-master-ui-acceptance.spec.ts` — 17 tests passed).

@@ -7,11 +7,13 @@ from app.schemas.project import ProductCode, ProjectCreate
 
 DEMO_PROJECTS = (
   ('iFive AutoQA Dashboard', ProductCode.AUTOQA),
+  ('Demo ERP', ProductCode.ERP),
   ('iFive ERP', ProductCode.ERP),
   ('iFive HRMS', ProductCode.HRMS),
   ('iFive CRM', ProductCode.CRM),
   ('iFive IIoT', ProductCode.IIOT),
   ('iFive Application Integration', ProductCode.INTEGRATION),
+  ('iFive Corporate Website', ProductCode.IIOT),
 )
 
 

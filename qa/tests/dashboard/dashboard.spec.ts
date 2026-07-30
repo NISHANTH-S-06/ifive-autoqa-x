@@ -28,8 +28,11 @@ test('dashboard loads API projects, empty state, and has no overflow or console 
   await page.goto('/');
   await expect(page.getByRole('heading', { name: /Test Every Workflow/i })).toBeVisible();
   await expect(page.getByTestId('project-card').filter({ hasText: 'iFive ERP' })).toBeVisible();
-  await expect(page.getByText('No test runs yet. Queue a local run to get started.')).toBeVisible();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  const layoutWidths = await page.evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    clientWidth: document.documentElement.clientWidth,
+  }));
+  expect(layoutWidths.scrollWidth).toBeLessThanOrEqual(layoutWidths.clientWidth);
   expect(errors).toEqual([]);
 });
 

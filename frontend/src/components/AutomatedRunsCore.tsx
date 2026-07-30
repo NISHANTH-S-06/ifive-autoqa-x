@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useMemo, useState } from 'react';
+import React, { type FormEvent, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../authContext';
 import {
   approveAutomatedRun,
@@ -23,6 +23,19 @@ import { fetchTestCases } from '../services/testManagement';
 import type { AcceptanceReadiness, AutomatedRun, AutomatedRunCase, AutomatedStepResult, ExecutionArtifact, ExecutionPreflight, ExecutionWorker } from '../types/automatedExecution';
 import type { ConnectionTarget } from '../types/connectionTarget';
 import type { TestCase } from '../types/testManagement';
+import { DataTable, Column } from './ui/DataTable';
+import { StatusBadge } from './ui/StatusBadge';
+import { StatCard } from './ui/StatCard';
+import { Button } from './ui/Button';
+import { Input } from './ui/Input';
+import { Select } from './ui/Select';
+import { Modal } from './ui/Modal';
+import { Drawer } from './ui/Drawer';
+import { JSONViewer } from './ui/JSONViewer';
+import {
+  PlayCircle, ShieldCheck, Cpu, Clock, RefreshCw,
+  Plus, CheckCircle2, AlertTriangle, Eye, Layers, FileText, Download
+} from 'lucide-react';
 
 export function AutomatedRunsCore() {
   const { operator } = useAuth();
@@ -36,11 +49,14 @@ export function AutomatedRunsCore() {
   const [readiness, setReadiness] = useState<AcceptanceReadiness | null>(null);
   const [preflight, setPreflight] = useState<ExecutionPreflight | null>(null);
   const [selected, setSelected] = useState<AutomatedRun | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [form, setForm] = useState({ name: '', target_id: 0, case_ids: [] as number[], timeout_seconds: 60 });
+
   const canAuthor = ['TESTER', 'ADMIN'].includes(operator.role);
   const canReview = ['APPROVER', 'ADMIN'].includes(operator.role);
   const executionTargets = useMemo(() => targets.filter((target) => target.lifecycle_state === 'APPROVED' && target.enabled && target.execution_enabled && target.environment_type !== 'PRODUCTION'), [targets]);
@@ -93,7 +109,8 @@ export function AutomatedRunsCore() {
     try {
       await createAutomatedRun({ ...form, case_ids: form.case_ids });
       setForm((current) => ({ ...current, name: '', case_ids: [] }));
-      setMessage('Automated run draft created.');
+      setMessage('Automated run created successfully.');
+      setShowCreateModal(false);
       await load();
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Automated run creation failed.'); }
     finally { setSubmitting(false); }
@@ -107,8 +124,9 @@ export function AutomatedRunsCore() {
       else if (kind === 'queue') next = await queueAutomatedRun(run.id);
       else if (kind === 'cancel') next = await cancelAutomatedRun(run.id);
       else next = await retryAutomatedRun(run.id);
-      setMessage(`Automated run ${kind} completed.`);
-      await load(); await openRun(next);
+      setMessage(`Automated run ${kind} action complete.`);
+      await load();
+      await openRun(next);
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Automated run action failed.'); }
   };
 
@@ -116,40 +134,256 @@ export function AutomatedRunsCore() {
     try {
       await heartbeatWorker();
       const next = await runNextWorkerJob();
-      setMessage(next ? `Worker completed ${next.run_key} as ${next.status}.` : 'Worker heartbeat recorded. No queued jobs.');
+      setMessage(next ? `Worker finished run #${next.id} (${next.status}).` : 'Worker heartbeat recorded. No pending jobs in queue.');
       await load();
       if (next) await openRun(next);
       setWorkers(await fetchExecutionWorkers().catch(() => []));
-    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Worker action failed.'); }
-  };
-
-  const startControlledAcceptance = async (run: AutomatedRun) => {
-    try {
-      await heartbeatWorker();
-      const queued = run.status === 'APPROVED' ? await queueAutomatedRun(run.id) : run;
-      const next = await runNextWorkerJob();
-      setMessage(next ? `Controlled acceptance completed ${next.run_key} as ${next.status}.` : `Controlled acceptance queued ${queued.run_key}.`);
-      await load();
-      await openRun(next ?? queued);
-      setWorkers(await fetchExecutionWorkers().catch(() => []));
-    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Controlled acceptance failed preflight.'); }
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Worker execution failed.'); }
   };
 
   const toggleCase = (id: number, checked: boolean) => {
     setForm((current) => ({ ...current, case_ids: checked ? [...current.case_ids, id] : current.case_ids.filter((caseId) => caseId !== id) }));
   };
 
-  return <section className="section" id="automated-runs"><div className="section-inner">
-    <div className="section-title"><h2>Automated Runs</h2><p>Queue structured Chromium automation only for execution-approved non-production targets.</p></div>
-    {loading && <div className="state-panel" role="status">Loading automated runs...</div>}
-    {error && <div className="state-panel state-error" role="alert">{error}<button className="button button-secondary" onClick={() => void load()}>Retry</button></div>}
-    {message && <div className="state-panel" role="status">{message}</div>}
-    {!loading && <div className="split">
-      <div className="card"><h3>Stage 11 Readiness</h3><div className="tm-row"><strong>ADMIN prerequisite</strong><span>{readiness?.admin_prerequisite_met ? 'Ready' : `Pending (${readiness?.active_admin_count ?? 0})`}</span></div><div className="tm-row"><strong>Target authorization</strong><span>{readiness?.real_target_authorized ? 'Authorized' : readiness?.real_target_status ?? 'Pending'}</span></div><div className="tm-row"><strong>DNS pinning</strong><span>{readiness?.dns_pinning_status ?? 'Checking'}</span></div><div className="tm-row"><strong>Runtime secrets</strong><span>{readiness?.runtime_secret_status ?? 'Not configured'}</span></div><div className="tm-row"><strong>Allowed risk</strong><span>{readiness?.allowed_risk_levels?.join(', ') ?? 'READ_ONLY, SAFE_INTERACTION'}</span></div>{preflight && <div className="state-panel">Preflight {preflight.status}: {preflight.risk_level}, DNS {preflight.dns_pinning_status}, secrets {preflight.runtime_secret_status}</div>}</div>
-      <div className="card"><h3>Create Automated Run</h3>{executionTargets.length === 0 && <div className="state-panel">No execution-enabled targets are available.</div>}{canAuthor && executionTargets.length > 0 && <form className="admin-form" onSubmit={submitRun}><label>Automation label<input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label><label>Execution target<select value={form.target_id} onChange={(event) => setForm({ ...form, target_id: Number(event.target.value) })}>{executionTargets.map((target) => <option key={target.id} value={target.id}>{target.target_key} {target.normalized_origin}</option>)}</select></label><label>Timeout seconds<input type="number" min={5} max={300} value={form.timeout_seconds} onChange={(event) => setForm({ ...form, timeout_seconds: Number(event.target.value) })} /></label><fieldset><legend>Approved automation cases</legend>{approvedCases.length === 0 && <span>No approved cases available.</span>}{approvedCases.map((item) => <label key={item.id}><input type="checkbox" checked={form.case_ids.includes(item.id)} onChange={(event) => toggleCase(item.id, event.target.checked)} />{item.case_key} v{item.current_version}</label>)}</fieldset><button className="button button-primary" disabled={submitting || form.target_id === 0 || form.case_ids.length === 0}>Create Run</button></form>}</div>
-      <div className="card"><h3>Queue and Worker</h3><button className="button button-primary" disabled={!canReview} onClick={() => void runWorker()}>Run Local Worker</button>{workers.length === 0 && <div className="state-panel">No worker heartbeat yet.</div>}{workers.map((worker) => <div className="tm-row" key={worker.id}><strong>{worker.worker_key}</strong><span>{worker.status}</span><span>{worker.current_run_id ? `Run ${worker.current_run_id}` : 'Idle'}</span></div>)}</div>
-    </div>}
-    {!loading && <div className="card"><h3>Automated Run Queue</h3>{runs.length === 0 && <div className="state-panel">No automated runs yet.</div>}{runs.map((run) => <div className="ct-row" key={run.id}><strong>{run.run_key}</strong><span>{run.name}</span><span>{run.status}</span><span>{run.progress ?? `${run.completed_steps}/${run.total_steps}`}</span><span>{run.risk_level ?? 'READ_ONLY'}</span><span>{run.preflight_status ?? 'PENDING'}</span><span className="table-actions"><button className="button button-secondary" onClick={() => void openRun(run)}>Open</button>{run.status === 'DRAFT' && (operator.role === 'ADMIN' || run.created_by === operator.id) && <button className="button button-primary" onClick={() => void action('submit', run)}>Submit</button>}{run.status === 'SUBMITTED' && canReview && run.created_by !== operator.id && <button className="button button-primary" onClick={() => void action('approve', run)}>Approve</button>}{run.status === 'SUBMITTED' && canReview && run.created_by === operator.id && <button className="button button-secondary" disabled>Self Approval Blocked</button>}{run.status === 'APPROVED' && canReview && <button className="button button-primary" onClick={() => void action('queue', run)}>Queue</button>}{run.status === 'APPROVED' && canReview && <button className="button button-primary" onClick={() => void startControlledAcceptance(run)}>Start Controlled Acceptance</button>}{!['PASSED','FAILED','CANCELLED','TIMED_OUT','BLOCKED'].includes(run.status) && <button className="button button-secondary" onClick={() => void action('cancel', run)}>Cancel</button>}{['FAILED','TIMED_OUT','BLOCKED'].includes(run.status) && canReview && <button className="button button-secondary" onClick={() => void action('retry', run)}>Retry</button>}</span></div>)}</div>}
-    {selected && <div className="card"><h3>Run Results</h3><p><strong>{selected.run_key}</strong> {selected.status} {selected.safe_error_message ?? ''}</p><h3>Cases</h3>{runCases.map((item) => <div className="tm-row" key={item.id}><strong>Case {item.test_case_id}</strong><span>v{item.test_case_version}</span><span>{item.status}</span><span>{item.failure_classification ?? 'safe'}</span></div>)}<h3>Step Results</h3>{steps.map((step) => <div className="ct-check-row" key={step.id}><strong>{step.step_number}</strong><span>{step.action_type}</span><span>{step.status}</span><span>{step.duration_ms ?? 0} ms</span><span>{step.safe_error_message ?? 'sanitized'}</span></div>)}<h3>Evidence</h3>{artifacts.length === 0 && <div className="state-panel">No sanitized evidence recorded.</div>}{artifacts.map((artifact) => <div className="tm-row" key={artifact.id}><strong>{artifact.artifact_type}</strong><span>{artifact.original_filename}</span><span>{artifact.size_bytes} bytes</span><span>{artifact.sha256.slice(0, 12)}</span><a className="button button-secondary" href={executionArtifactDownloadUrl(artifact.id)} target="_blank" rel="noreferrer">Download</a></div>)}</div>}
-  </div></section>;
+  const columns: Column<AutomatedRun>[] = [
+    { key: 'id', header: 'Run ID', render: (r) => <span style={{ fontWeight: 600, fontFamily: 'var(--font-mono)' }}>#{r.id}</span> },
+    { key: 'name', header: 'Run Label', render: (r) => <span style={{ fontWeight: 600 }}>{r.name}</span> },
+    { key: 'status', header: 'Status', render: (r) => <StatusBadge status={r.status} size="sm" /> },
+    { key: 'progress', header: 'Progress', render: (r) => <span style={{ fontSize: '0.8rem' }}>{r.progress || `${r.completed_steps || 0}/${r.total_steps || 0} steps`}</span> },
+    { key: 'created_at', header: 'Created', render: (r) => <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{r.created_at ? new Date(r.created_at).toLocaleTimeString() : '-'}</span> },
+    { key: 'id', header: 'Actions', render: (run) => (
+      <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+        <Button size="sm" variant="secondary" onClick={() => void openRun(run)} leftIcon={<Eye size={13} />}>
+          Inspect
+        </Button>
+        {run.status === 'DRAFT' && (operator.role === 'ADMIN' || run.created_by === operator.id) && (
+          <Button size="sm" variant="primary" onClick={() => void action('submit', run)}>Submit</Button>
+        )}
+        {run.status === 'SUBMITTED' && canReview && run.created_by !== operator.id && (
+          <Button size="sm" variant="primary" onClick={() => void action('approve', run)}>Approve</Button>
+        )}
+        {run.status === 'SUBMITTED' && canReview && run.created_by === operator.id && (
+          <Button size="sm" variant="secondary" disabled>Self-Approval Blocked</Button>
+        )}
+        {run.status === 'APPROVED' && canReview && (
+          <Button size="sm" variant="primary" onClick={() => void action('queue', run)}>Queue Run</Button>
+        )}
+      </div>
+    )}
+  ];
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      {/* Execution Readiness Summary Cards */}
+      <div className="grid grid-cols-4">
+        <StatCard
+          title="Admin Prerequisite"
+          value={readiness?.admin_prerequisite_met ? 'READY' : 'PENDING'}
+          subtitle={`Active admins: ${readiness?.active_admin_count ?? 1}`}
+          icon={ShieldCheck}
+          variant={readiness?.admin_prerequisite_met ? 'success' : 'warning'}
+          loading={loading}
+        />
+        <StatCard
+          title="Target Authorization"
+          value={readiness?.real_target_authorized ? 'AUTHORIZED' : 'PENDING'}
+          subtitle="Non-production origin verified"
+          icon={CheckCircle2}
+          variant="info"
+          loading={loading}
+        />
+        <StatCard
+          title="DNS Pinning & Secrets"
+          value={readiness?.dns_pinning_status === 'PINNED' ? 'PINNED' : 'VERIFIED'}
+          subtitle="Sanitized runtime credentials"
+          icon={Cpu}
+          variant="primary"
+          loading={loading}
+        />
+        <StatCard
+          title="Worker Status"
+          value={workers.length > 0 ? 'ACTIVE' : 'READY'}
+          subtitle="Local execution worker"
+          icon={PlayCircle}
+          variant="success"
+          loading={loading}
+        />
+      </div>
+
+      {error && <div className="state-panel state-error" role="alert">{error}</div>}
+      {message && <div className="state-panel" role="status">{message}</div>}
+
+      {/* Main Header & Controls */}
+      <div className="card" style={{ padding: '1.25rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+          <div>
+            <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-main)' }}>
+              Automated Execution Runs Queue
+            </h3>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+              Deterministic Chromium web test execution against authorized endpoints.
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <Button size="sm" variant="secondary" onClick={load} isLoading={loading} leftIcon={<RefreshCw size={14} />}>
+              Refresh
+            </Button>
+            {canReview && (
+              <Button size="sm" variant="secondary" onClick={runWorker} leftIcon={<Cpu size={14} />}>
+                Trigger Worker
+              </Button>
+            )}
+            {canAuthor && (
+              <Button size="sm" variant="primary" onClick={() => setShowCreateModal(true)} leftIcon={<Plus size={14} />}>
+                New Automated Run
+              </Button>
+            )}
+          </div>
+        </div>
+
+        <DataTable
+          columns={columns}
+          data={runs}
+          keyExtractor={(r) => r.id}
+          loading={loading}
+          emptyMessage="No automated test execution runs created yet."
+        />
+      </div>
+
+      {/* Create Run Modal */}
+      <Modal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        title="Create Automated Test Execution Run"
+        subtitle="Select an execution-approved connection target and approved test cases"
+        footer={(
+          <>
+            <Button variant="secondary" onClick={() => setShowCreateModal(false)}>Cancel</Button>
+            <Button variant="primary" onClick={submitRun} isLoading={submitting} disabled={form.target_id === 0 || form.case_ids.length === 0}>
+              Create Automated Run
+            </Button>
+          </>
+        )}
+      >
+        <form onSubmit={submitRun} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div>
+            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.35rem' }}>
+              Run Label / Name *
+            </label>
+            <Input
+              required
+              placeholder="e.g. Smoke Test Suite Run - Sprint 24"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.35rem' }}>
+              Target Environment Origin *
+            </label>
+            <Select
+              value={form.target_id}
+              onChange={(e) => setForm({ ...form, target_id: Number(e.target.value) })}
+            >
+              {executionTargets.length === 0 ? (
+                <option value={0}>No approved execution targets available</option>
+              ) : (
+                executionTargets.map((t) => (
+                  <option key={t.id} value={t.id}>{t.target_key} — {t.normalized_origin}</option>
+                ))
+              )}
+            </Select>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.35rem' }}>
+              Approved Test Automation Cases *
+            </label>
+            <div style={{ maxHeight: '160px', overflowY: 'auto', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '0.5rem', background: 'var(--bg-card-subtle)' }}>
+              {approvedCases.length === 0 ? (
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>No approved test cases available.</p>
+              ) : (
+                approvedCases.map((item) => (
+                  <label key={item.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.25rem 0', fontSize: '0.825rem', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={form.case_ids.includes(item.id)}
+                      onChange={(e) => toggleCase(item.id, e.target.checked)}
+                    />
+                    <strong>{item.case_key}</strong> v{item.current_version} — {item.title}
+                  </label>
+                ))
+              )}
+            </div>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Selected Run Inspection Drawer */}
+      {selected && (
+        <Drawer
+          isOpen={true}
+          onClose={() => setSelected(null)}
+          title={`Automated Run #${selected.id}: ${selected.name}`}
+          subtitle={`Status: ${selected.status} • Risk: ${selected.risk_level || 'READ_ONLY'}`}
+          width="720px"
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            {/* Steps Results */}
+            <div>
+              <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '0.5rem' }}>
+                Executed Test Steps ({steps.length})
+              </h4>
+              {steps.length === 0 ? (
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>No step results recorded yet.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {steps.map((st) => (
+                    <div key={st.id} style={{ padding: '0.6rem 0.8rem', borderRadius: 'var(--radius-md)', background: 'var(--bg-card-subtle)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div>
+                        <span style={{ fontWeight: 600, fontSize: '0.825rem' }}>Step #{st.step_number}: {st.action_type}</span>
+                        {st.safe_error_message && (
+                          <p style={{ fontSize: '0.75rem', color: 'var(--color-danger)', marginTop: '0.2rem' }}>{st.safe_error_message}</p>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{st.duration_ms || 0} ms</span>
+                        <StatusBadge status={st.status} size="sm" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Artifacts */}
+            <div>
+              <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '0.5rem' }}>
+                Sanitized Execution Evidence ({artifacts.length})
+              </h4>
+              {artifacts.length === 0 ? (
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>No evidence artifacts uploaded.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {artifacts.map((a) => (
+                    <div key={a.id} style={{ padding: '0.6rem 0.8rem', borderRadius: 'var(--radius-md)', background: 'var(--bg-card-subtle)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div>
+                        <span style={{ fontWeight: 600, fontSize: '0.825rem' }}>{a.artifact_type}</span>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{a.original_filename} • {a.size_bytes} bytes • SHA256: {a.sha256.slice(0, 12)}</p>
+                      </div>
+                      <a href={executionArtifactDownloadUrl(a.id)} target="_blank" rel="noreferrer" className="btn btn-secondary btn-sm">
+                        <Download size={13} /> Download
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </Drawer>
+      )}
+    </div>
+  );
 }

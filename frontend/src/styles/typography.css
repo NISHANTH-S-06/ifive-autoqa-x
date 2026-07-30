@@ -1,0 +1,45 @@
+/* ==========================================================================
+   Phase 7 Design System — Typography scale
+   Additive file: does not modify variables.css or any existing component.
+   ========================================================================== */
+
+:root {
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.9375rem;
+  --text-md: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.75rem;
+  --text-3xl: 2.25rem;
+
+  --leading-tight: 1.2;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.7;
+
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  --tracking-tight: -0.01em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.02em;
+}
+
+.autoqa-h1, .autoqa-h2, .autoqa-h3 {
+  font-family: var(--font-sans);
+  color: var(--text-main);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  margin: 0;
+}
+
+.autoqa-h1 { font-size: var(--text-3xl); }
+.autoqa-h2 { font-size: var(--text-2xl); }
+.autoqa-h3 { font-size: var(--text-xl); }
+
+.autoqa-body { font-size: var(--text-base); line-height: var(--leading-normal); color: var(--text-main); }
+.autoqa-caption { font-size: var(--text-xs); line-height: var(--leading-normal); color: var(--text-muted); }
+.autoqa-mono { font-family: var(--font-mono); font-size: var(--text-sm); }

@@ -6,8 +6,10 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 class OperatorRole(str, Enum):
   VIEWER = 'VIEWER'
+  DEVELOPER = 'DEVELOPER'
   TESTER = 'TESTER'
   APPROVER = 'APPROVER'
+  PROJECT_MANAGER = 'PROJECT_MANAGER'
   ADMIN = 'ADMIN'
 
 

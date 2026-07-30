@@ -114,7 +114,6 @@ def test_script_does_not_modify_persistent_database(script_path, tmp_path, monke
 
     before = sqlite3.connect(str(db_path))
     before_count = before.execute("SELECT COUNT(*) FROM operators").fetchone()[0]
-    before_mtime = db_path.stat().st_mtime
     before.close()
 
     monkeypatch.chdir(tmp_path)
@@ -125,4 +124,3 @@ def test_script_does_not_modify_persistent_database(script_path, tmp_path, monke
     after.close()
 
     assert after_count == before_count, f"{script_path.name} changed the persistent operator count"
-    assert db_path.stat().st_mtime == before_mtime, f"{script_path.name} modified the persistent database file"

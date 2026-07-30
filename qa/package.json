@@ -6,6 +6,10 @@
   "scripts": {
     "test": "playwright test",
     "test:ui": "playwright test --ui",
+    "test:list": "playwright test --list",
+    "test:phase3": "playwright test tests/phase3-task-connector.spec.ts --project=chromium --workers=1",
+    "test:phase3:core": "playwright test tests/phase3-task-connector.spec.ts --project=chromium --grep \"PASS|FAIL|BLOCKED\" --workers=1",
+    "demo:proxy": "node demo-product-proxy.mjs",
     "report": "playwright show-report reports/html"
   },
   "devDependencies": {

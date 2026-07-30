@@ -49,10 +49,13 @@ def _can_review(context: AuthContext) -> bool:
   return context.operator.role in {'APPROVER', 'ADMIN'}
 
 
-def _get_run(db: Session, run_id: int, context: AuthContext | None = None, action: ProjectAction = ProjectAction.READ) -> AutomatedRun:
+def _get_run(db: Session, run_id: int, context: AuthContext, action: ProjectAction = ProjectAction.READ) -> AutomatedRun:
   run = db.scalar(select(AutomatedRun).options(selectinload(AutomatedRun.cases), selectinload(AutomatedRun.jobs)).where(AutomatedRun.id == run_id))
   if run is None:
     raise HTTPException(status_code=404, detail='Automated run not found.')
+  # Router-level auth already guarantees context is present; RBAC/project
+  # isolation is unconditional and is never skipped for a missing context.
+  ProjectAccessService(db, context.operator.id).require(run.project_id, action)
   run.progress = progress(run)
   return run
 
@@ -107,7 +110,7 @@ def create_automated_run(payload: AutomatedRunCreate, context: AuthContext = Dep
   run = create_run(db, target, payload.name, payload.description, payload.case_ids, payload.timeout_seconds, payload.max_retries, context.operator.id, payload.runtime_secret_required)
   append_event(db, 'automated_run_created', operator_id=context.operator.id, resource_type='AUTOMATED_RUN', resource_id=str(run.id), metadata={'run_key': run.run_key})
   db.commit()
-  return _get_run(db, run.id)
+  return _get_run(db, run.id, context)
 
 
 @router.get('/automated-runs/{run_id}', response_model=AutomatedRunRead)
@@ -134,7 +137,7 @@ def submit_automated_run(run_id: int, context: AuthContext = Depends(require_csr
   add_event(db, run.id, 'automated_run_submitted')
   append_event(db, 'automated_run_submitted', operator_id=context.operator.id, resource_type='AUTOMATED_RUN', resource_id=str(run.id), metadata={'run_key': run.run_key})
   db.commit()
-  return _get_run(db, run.id)
+  return _get_run(db, run.id, context, ProjectAction.TEST)
 
 
 @router.post('/automated-runs/{run_id}/approve', response_model=AutomatedRunRead)
@@ -158,7 +161,7 @@ def approve_automated_run(run_id: int, context: AuthContext = Depends(require_cs
   add_event(db, run.id, 'automated_run_approved')
   append_event(db, 'automated_run_approved', operator_id=context.operator.id, resource_type='AUTOMATED_RUN', resource_id=str(run.id), metadata={'run_key': run.run_key})
   db.commit()
-  return _get_run(db, run.id)
+  return _get_run(db, run.id, context, ProjectAction.APPROVE)
 
 
 @router.post('/automated-runs/{run_id}/queue', response_model=AutomatedRunRead)
@@ -185,14 +188,14 @@ def queue_automated_run(run_id: int, context: AuthContext = Depends(require_csrf
   add_event(db, run.id, 'automated_run_queued')
   append_event(db, 'automated_run_queued', operator_id=context.operator.id, resource_type='AUTOMATED_RUN', resource_id=str(run.id), metadata={'run_key': run.run_key})
   db.commit()
-  return _get_run(db, run.id)
+  return _get_run(db, run.id, context, ProjectAction.APPROVE)
 
 
 @router.post('/automated-runs/{run_id}/cancel', response_model=AutomatedRunRead)
 def cancel_automated_run(run_id: int, context: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)):
   if context.operator.role not in {'TESTER', 'APPROVER', 'ADMIN'}:
     raise HTTPException(status_code=403, detail='You do not have permission to perform this action.')
-  run = _get_run(db, run_id, context, ProjectAction.TEST)
+  run = _get_run(db, run_id, context, ProjectAction.READ)
   if run.status in {'PASSED', 'FAILED', 'CANCELLED', 'TIMED_OUT', 'BLOCKED'}:
     raise HTTPException(status_code=409, detail='Terminal automated runs cannot be cancelled.')
   run.status = 'CANCELLED'; run.cancelled_by = context.operator.id; run.cancelled_at = datetime.utcnow(); run.completed_at = datetime.utcnow(); run.failure_classification = 'CANCELLED'; run.safe_error_message = 'Automated run was cancelled.'
@@ -202,7 +205,7 @@ def cancel_automated_run(run_id: int, context: AuthContext = Depends(require_csr
   add_event(db, run.id, 'automated_run_cancelled', 'WARN')
   append_event(db, 'automated_run_cancelled', operator_id=context.operator.id, resource_type='AUTOMATED_RUN', resource_id=str(run.id), metadata={'run_key': run.run_key})
   db.commit()
-  return _get_run(db, run.id)
+  return _get_run(db, run.id, context, ProjectAction.READ)
 
 
 @router.post('/automated-runs/{run_id}/retry', response_model=AutomatedRunRead)
@@ -225,7 +228,7 @@ def retry_automated_run(run_id: int, context: AuthContext = Depends(require_csrf
   add_event(db, run.id, 'automated_run_retry_queued')
   append_event(db, 'automated_run_retry_queued', operator_id=context.operator.id, resource_type='AUTOMATED_RUN', resource_id=str(run.id), metadata={'run_key': run.run_key})
   db.commit()
-  return _get_run(db, run.id)
+  return _get_run(db, run.id, context, ProjectAction.APPROVE)
 
 
 @router.get('/automated-runs/{run_id}/cases', response_model=list[AutomatedRunCaseRead])
@@ -284,10 +287,8 @@ def worker_heartbeat(payload: WorkerHeartbeat, context: AuthContext = Depends(re
 def run_next_worker_job(payload: WorkerHeartbeat, context: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)):
   if context.operator.role not in {'APPROVER', 'ADMIN'}:
     raise HTTPException(status_code=403, detail='You do not have permission to perform this action.')
-  run = execute_next_job(db, payload.worker_key)
+  project_ids = ProjectAccessService(db, context.operator.id).project_ids(ProjectAction.APPROVE)
+  run = execute_next_job(db, payload.worker_key, project_ids)
   append_event(db, 'execution_worker_run_next', operator_id=context.operator.id, resource_type='EXECUTION_WORKER', resource_id=payload.worker_key, metadata={'run_id': run.id if run else None})
   db.commit()
-  return _get_run(db, run.id) if run else None
-  if context is not None:
-    ProjectAccessService(db, context.operator.id).require(run.project_id, action)
-  ProjectAccessService(db, context.operator.id).require(item.project_id)
+  return _get_run(db, run.id, context, ProjectAction.APPROVE) if run else None

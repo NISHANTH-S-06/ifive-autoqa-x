@@ -1,0 +1,40 @@
+/* ==========================================================================
+   Phase 7 Design System — Spacing, layout, and z-index tokens
+   Additive file: does not modify variables.css or any existing component.
+   Color/theme tokens remain the single source of truth in variables.css.
+   ========================================================================== */
+
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  --sidebar-width: 260px;
+  --sidebar-width-collapsed: 72px;
+  --header-height: 56px;
+  --content-max-width: 1440px;
+
+  --breakpoint-mobile: 480px;
+  --breakpoint-tablet: 768px;
+  --breakpoint-laptop: 1024px;
+  --breakpoint-desktop: 1280px;
+  --breakpoint-wide: 1600px;
+
+  --z-base: 0;
+  --z-sticky: 100;
+  --z-header: 200;
+  --z-sidebar: 300;
+  --z-dropdown: 400;
+  --z-overlay: 500;
+  --z-modal: 600;
+  --z-toast: 700;
+  --z-tooltip: 800;
+  --z-command-palette: 900;
+}

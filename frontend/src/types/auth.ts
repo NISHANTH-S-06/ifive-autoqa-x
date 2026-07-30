@@ -1,4 +1,4 @@
-export type OperatorRole = 'VIEWER' | 'TESTER' | 'APPROVER' | 'ADMIN';
+export type OperatorRole = 'VIEWER' | 'DEVELOPER' | 'TESTER' | 'APPROVER' | 'PROJECT_MANAGER' | 'ADMIN';
 export interface Operator { id: number; username: string; display_name: string; role: OperatorRole; is_active: boolean; must_change_password?: boolean; password_changed_at?: string | null; password_expires_at?: string | null; failed_login_count?: number; locked_until?: string | null; last_login_at?: string | null; created_at?: string; }
 export interface AuditEvent { id: number; occurred_at: string; operator_id: number | null; action: string; resource_type: string | null; resource_id: string | null; outcome: string; request_id: string; }
 export interface OperatorSession { session_id: number; session_name: string | null; created_at: string; last_seen_at: string; last_activity_at: string | null; expires_at: string; revoked_at: string | null; user_agent: string | null; ip_address: string | null; is_current: boolean; is_active: boolean; }

@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from 'react';
+import React, { type FormEvent, useEffect, useState } from 'react';
 import { useAuth } from '../authContext';
 import {
   createOperator,
@@ -14,6 +14,16 @@ import {
   verifyAudit,
 } from '../services/auth';
 import type { AuditEvent, Operator, OperatorRole, OperatorSecurity, SecuritySummary } from '../types/auth';
+import { DataTable, Column } from './ui/DataTable';
+import { StatusBadge } from './ui/StatusBadge';
+import { StatCard } from './ui/StatCard';
+import { Button } from './ui/Button';
+import { Input } from './ui/Input';
+import { Select } from './ui/Select';
+import { FormField } from './ui/FormField';
+import { Modal } from './ui/Modal';
+import { ErrorState } from './ui/ErrorState';
+import { Users, Shield, Lock, Key, Plus, RefreshCw, UserCheck, ShieldAlert } from 'lucide-react';
 
 const roles: OperatorRole[] = ['VIEWER', 'TESTER', 'APPROVER', 'ADMIN'];
 const formatDate = (value: string | null | undefined) => value ? new Date(value).toLocaleString() : 'Never';
@@ -23,67 +33,71 @@ export function AdminPanels() {
   const [operators, setOperators] = useState<Operator[]>([]);
   const [securityOperators, setSecurityOperators] = useState<OperatorSecurity[]>([]);
   const [summary, setSummary] = useState<SecuritySummary | null>(null);
-  const [events, setEvents] = useState<AuditEvent[]>([]);
-  const [integrity, setIntegrity] = useState('');
   const [loading, setLoading] = useState(true);
-  const [securityLoading, setSecurityLoading] = useState(true);
-  const [securityError, setSecurityError] = useState('');
   const [error, setError] = useState('');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+
   const [form, setForm] = useState({ username: '', display_name: '', role: 'VIEWER' as OperatorRole, temporary_password: '' });
   const [resetTarget, setResetTarget] = useState<OperatorSecurity | null>(null);
   const [resetForm, setResetForm] = useState({ temporary_password: '', confirm_temporary_password: '', reason: '' });
+  const [submitting, setSubmitting] = useState(false);
 
   const load = async () => {
     if (current.role !== 'ADMIN') return;
     setLoading(true);
-    setSecurityLoading(true);
     setError('');
-    setSecurityError('');
     try {
-      const [nextOperators, nextEvents] = await Promise.all([
+      const [nextOperators, nextSummary, nextSecurityOperators] = await Promise.all([
         listOperators(),
-        listAuditEvents(),
+        getSecuritySummary().catch(() => null),
+        listSecurityOperators().catch(() => []),
       ]);
-      setOperators(nextOperators);
-      setEvents(nextEvents);
+      setOperators(nextOperators || []);
+      setSummary(nextSummary);
+      setSecurityOperators(nextSecurityOperators || []);
     } catch (reason) {
-      setOperators([]);
-      setEvents([]);
       setError(reason instanceof Error ? reason.message : 'Unable to load administration data.');
     } finally {
       setLoading(false);
     }
-    try {
-      const [nextSummary, nextSecurityOperators] = await Promise.all([getSecuritySummary(), listSecurityOperators()]);
-      setSummary(nextSummary);
-      setSecurityOperators(nextSecurityOperators);
-    } catch (reason) {
-      setSummary(null);
-      setSecurityOperators([]);
-      setSecurityError(reason instanceof Error ? reason.message : 'Unable to load security report.');
-    } finally {
-      setSecurityLoading(false);
-    }
   };
 
   useEffect(() => { void load(); }, [current.role]);
-  if (current.role !== 'ADMIN') return null;
 
-  const submit = async (event: FormEvent) => {
+  if (current.role !== 'ADMIN') {
+    return (
+      <div className="card" style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+        <ShieldAlert size={36} style={{ color: 'var(--color-warning)', margin: '0 auto 1rem' }} />
+        <h4 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '0.5rem' }}>
+          Administrator Privilege Required
+        </h4>
+        <p style={{ fontSize: '0.85rem' }}>
+          Operator user management and security policy configuration is restricted to ADMIN roles.
+        </p>
+      </div>
+    );
+  }
+
+  const submitCreate = async (event: FormEvent) => {
     event.preventDefault();
+    setSubmitting(true);
     setError('');
     try {
       await createOperator(form);
       setForm({ username: '', display_name: '', role: 'VIEWER', temporary_password: '' });
+      setShowCreateModal(false);
       await load();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Unable to create operator.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const submitReset = async (event: FormEvent) => {
     event.preventDefault();
-    if (!resetTarget || !window.confirm(`Reset password for ${resetTarget.username}? This will require a password change on next login and revoke active sessions.`)) return;
+    if (!resetTarget) return;
+    setSubmitting(true);
     try {
       await resetOperatorPassword(resetTarget.id, resetForm);
       setResetForm({ temporary_password: '', confirm_temporary_password: '', reason: '' });
@@ -91,80 +105,197 @@ export function AdminPanels() {
       await load();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Password reset failed.');
-      setResetForm({ temporary_password: '', confirm_temporary_password: '', reason: '' });
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const changeRole = async (item: Operator, role: OperatorRole) => {
-    if (!window.confirm(`Change ${item.username} role to ${role}?`)) return;
-    try { await setOperatorRole(item.id, role); await load(); } catch (reason) { setError(reason instanceof Error ? reason.message : 'Role update failed.'); }
-  };
-
-  const toggle = async (item: Operator) => {
-    if (!window.confirm(`${item.is_active ? 'Deactivate' : 'Activate'} ${item.username}?`)) return;
-    try { await setOperatorStatus(item.id, !item.is_active); await load(); } catch (reason) { setError(reason instanceof Error ? reason.message : 'Status update failed.'); }
-  };
-
-  const viewSessions = async (item: OperatorSecurity) => {
+  const changeRole = async (item: Operator, newRole: OperatorRole) => {
     try {
-      const sessions = await listOperatorSessions(item.id);
-      window.alert(`${item.username}: ${sessions.length} session(s), ${sessions.filter((session) => session.is_active).length} active.`);
+      await setOperatorRole(item.id, newRole);
+      await load();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Unable to view sessions.');
+      setError(reason instanceof Error ? reason.message : 'Role update failed.');
     }
   };
 
-  const revokeSessions = async (item: OperatorSecurity) => {
-    const reason = window.prompt(`Reason to revoke sessions for ${item.username}`);
-    if (!reason) return;
-    try { await revokeOperatorSessions(item.id, reason); await load(); } catch (reasonError) { setError(reasonError instanceof Error ? reasonError.message : 'Unable to revoke sessions.'); }
+  const toggleStatus = async (item: Operator) => {
+    try {
+      await setOperatorStatus(item.id, !item.is_active);
+      await load();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Status update failed.');
+    }
   };
+
+  const operatorColumns: Column<Operator>[] = [
+    { key: 'username', header: 'Operator Username', render: (o) => <span style={{ fontWeight: 700 }}>{o.username}</span> },
+    { key: 'display_name', header: 'Display Name', render: (o) => <span>{o.display_name}</span> },
+    { key: 'role', header: 'Role', render: (o) => (
+      <Select
+        value={o.role}
+        onChange={(e) => void changeRole(o, e.target.value as OperatorRole)}
+        style={{ width: '130px', padding: '0.25rem 0.5rem', fontSize: '0.8rem' }}
+      >
+        {roles.map((r) => <option key={r} value={r}>{r}</option>)}
+      </Select>
+    )},
+    { key: 'is_active', header: 'Status', render: (o) => <StatusBadge status={o.is_active ? 'APPROVED' : 'REJECTED'} label={o.is_active ? 'Active' : 'Inactive'} size="sm" /> },
+    { key: 'actions', header: 'Actions', render: (o) => (
+      <Button
+        size="sm"
+        variant={o.is_active ? 'danger' : 'secondary'}
+        onClick={() => void toggleStatus(o)}
+      >
+        {o.is_active ? 'Deactivate' : 'Activate'}
+      </Button>
+    )}
+  ];
 
   return (
-    <section className="section" id="administration">
-      <div className="section-inner">
-        <div className="section-title"><h2>Local Administration</h2><p>Manage local operators and verify the append-only audit chain.</p></div>
-        {error && <div role="alert" className="state-panel state-error">{error}</div>}
-        {loading && <div className="state-panel" role="status">Loading administration data...</div>}
-        {securityLoading && <div className="state-panel" role="status">Loading security report...</div>}
-        {securityError && <div role="alert" className="state-panel state-error">{securityError}<button className="button button-secondary" onClick={() => void load()}>Retry</button></div>}
-        {!securityLoading && !securityError && summary && <div className="security-summary-grid">
-          <div className="metric"><span>Active Operators</span><strong>{summary.active_operators}</strong></div>
-          <div className="metric"><span>Locked Operators</span><strong>{summary.locked_operators}</strong></div>
-          <div className="metric"><span>Password Change Required</span><strong>{summary.must_change_password_count}</strong></div>
-          <div className="metric"><span>Active Sessions</span><strong>{summary.active_sessions}</strong></div>
-          <div className="metric"><span>Failed Logins</span><strong>{summary.failed_logins_last_24h}</strong></div>
-          <div className="metric"><span>Audit Integrity</span><strong>{summary.audit_chain_valid ? 'Valid' : 'Invalid'}</strong></div>
-        </div>}
-        <div className="split">
-          <div className="card">
-            <h3>Operators</h3>
-            <form className="admin-form" onSubmit={submit}>
-              <input aria-label="New username" placeholder="Username" value={form.username} onChange={(event) => setForm({ ...form, username: event.target.value })} />
-              <input aria-label="Display name" placeholder="Display name" value={form.display_name} onChange={(event) => setForm({ ...form, display_name: event.target.value })} />
-              <select aria-label="New role" value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value as OperatorRole })}>{roles.map((role) => <option key={role}>{role}</option>)}</select>
-              <input aria-label="Temporary password" type="password" placeholder="Temporary password" value={form.temporary_password} onChange={(event) => setForm({ ...form, temporary_password: event.target.value })} />
-            <button className="button button-primary">Create Operator</button>
-            </form>
-            {!loading && !error && operators.length === 0 && <div className="state-panel">No operators to display.</div>}
-            {operators.map((item) => <div className="admin-row" key={item.id}><span><strong>{item.username}</strong> - {item.display_name}</span><select aria-label={`Role for ${item.username}`} value={item.role} onChange={(event) => void changeRole(item, event.target.value as OperatorRole)}>{roles.map((role) => <option key={role}>{role}</option>)}</select><button className="button button-secondary" onClick={() => void toggle(item)}>{item.is_active ? 'Deactivate' : 'Activate'}</button></div>)}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      {/* Security Summary Cards */}
+      {summary && (
+        <div className="grid grid-cols-4">
+          <StatCard title="Active Operators" value={summary.active_operators} subtitle="Registered operators" icon={Users} variant="primary" loading={loading} />
+          <StatCard title="Active Sessions" value={summary.active_sessions} subtitle="Current logged sessions" icon={UserCheck} variant="success" loading={loading} />
+          <StatCard title="Password Required" value={summary.must_change_password_count} subtitle="Pending credential update" icon={Key} variant="warning" loading={loading} />
+          <StatCard title="Audit Integrity" value={summary.audit_chain_valid ? 'VALID' : 'INVALID'} subtitle="Sequential ledger status" icon={Shield} variant={summary.audit_chain_valid ? 'success' : 'danger'} loading={loading} />
+        </div>
+      )}
+
+      {error && <ErrorState message={error} onRetry={load} />}
+
+      {/* Operators Table Card */}
+      <div className="card" style={{ padding: '1.25rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+          <div>
+            <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-main)' }}>
+              Local Operator Accounts & Governance
+            </h3>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+              Manage local operator credentials and RBAC roles (VIEWER, TESTER, APPROVER, ADMIN).
+            </p>
           </div>
-          <div className="card">
-            <h3>Audit Log</h3>
-            <button className="button button-primary" onClick={() => void verifyAudit().then((result) => setIntegrity(result.valid ? `Valid (${result.total_events} events)` : 'Invalid audit chain')).catch((reason) => setError(reason instanceof Error ? reason.message : 'Verification failed.'))}>Verify Audit Integrity</button>
-            {integrity && <p role="status">{integrity}</p>}
-            {!loading && !error && events.length === 0 && <div className="state-panel">No audit events to display.</div>}
-            <div className="audit-list">{events.map((event) => <div className="admin-row" key={event.id}><span>{event.occurred_at}</span><strong>{event.action}</strong><span>{event.outcome}</span><code>{event.request_id}</code></div>)}</div>
+
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <Button size="sm" variant="secondary" onClick={load} isLoading={loading} leftIcon={<RefreshCw size={14} />}>
+              Refresh
+            </Button>
+            <Button size="sm" variant="primary" onClick={() => setShowCreateModal(true)} leftIcon={<Plus size={14} />}>
+              New Operator Account
+            </Button>
           </div>
         </div>
-        <div className="card security-table">
-          <h3>Operator Security</h3>
-          {!securityLoading && !securityError && securityOperators.length === 0 && <div className="state-panel">No operator security records to display.</div>}
-          {!securityLoading && !securityError && securityOperators.length > 0 && <><div className="security-table-row security-table-head"><span>Operator</span><span>Role</span><span>Status</span><span>Password State</span><span>Last Login</span><span>Sessions</span><span>Lock</span><span>Actions</span></div>
-          {securityOperators.map((item) => <div className="security-table-row" key={item.id}><span><strong>{item.username}</strong><small>{item.display_name}</small></span><span>{item.role}</span><span>{item.is_active ? 'Active' : 'Inactive'}</span><span>{item.must_change_password ? 'Change required' : 'Current'}</span><span>{formatDate(item.last_login_at)}</span><span>{item.active_session_count}</span><span>{item.is_locked ? 'Locked' : 'Open'}</span><span className="table-actions"><button className="button button-secondary" onClick={() => setResetTarget(item)}>Reset</button><button className="button button-secondary" onClick={() => void viewSessions(item)}>Sessions</button><button className="button button-secondary" onClick={() => void revokeSessions(item)}>Revoke</button></span></div>)}</>}
-        </div>
+
+        <DataTable
+          columns={operatorColumns}
+          data={operators}
+          keyExtractor={(o) => o.id}
+          loading={loading}
+          emptyMessage="No operator accounts found."
+        />
       </div>
-      {resetTarget && <div className="modal-backdrop"><div className="modal"><h3>Reset Password</h3><form onSubmit={submitReset}><label>Temporary Password<input type="password" autoComplete="new-password" value={resetForm.temporary_password} onChange={(event) => setResetForm({ ...resetForm, temporary_password: event.target.value })} /></label><label>Confirm Temporary Password<input type="password" autoComplete="new-password" value={resetForm.confirm_temporary_password} onChange={(event) => setResetForm({ ...resetForm, confirm_temporary_password: event.target.value })} /></label><label>Reason<input value={resetForm.reason} onChange={(event) => setResetForm({ ...resetForm, reason: event.target.value })} /></label><div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => { setResetTarget(null); setResetForm({ temporary_password: '', confirm_temporary_password: '', reason: '' }); }}>Cancel</button><button className="button button-primary">Reset Password</button></div></form></div></div>}
-    </section>
+
+      {/* Create Operator Modal */}
+      <Modal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        title="Create New Local Operator Account"
+        subtitle="Specify credentials, display name, and assign an initial RBAC role"
+        footer={(
+          <>
+            <Button variant="secondary" onClick={() => setShowCreateModal(false)}>Cancel</Button>
+            <Button variant="primary" onClick={submitCreate} isLoading={submitting} disabled={!form.username || !form.temporary_password}>
+              Create Operator
+            </Button>
+          </>
+        )}
+      >
+        <form onSubmit={submitCreate} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <FormField label="Username" required>
+            <Input
+              required
+              placeholder="e.g. dev_tester"
+              value={form.username}
+              onChange={(e) => setForm({ ...form, username: e.target.value })}
+            />
+          </FormField>
+
+          <FormField label="Display Name" required>
+            <Input
+              required
+              placeholder="e.g. Jane Doe"
+              value={form.display_name}
+              onChange={(e) => setForm({ ...form, display_name: e.target.value })}
+            />
+          </FormField>
+
+          <FormField label="RBAC Role" required>
+            <Select
+              value={form.role}
+              onChange={(e) => setForm({ ...form, role: e.target.value as OperatorRole })}
+            >
+              {roles.map((r) => <option key={r} value={r}>{r}</option>)}
+            </Select>
+          </FormField>
+
+          <FormField label="Temporary Password" required hint="Operator must change password on first login">
+            <Input
+              type="password"
+              required
+              placeholder="••••••••"
+              value={form.temporary_password}
+              onChange={(e) => setForm({ ...form, temporary_password: e.target.value })}
+            />
+          </FormField>
+        </form>
+      </Modal>
+
+      {/* Password Reset Modal */}
+      {resetTarget && (
+        <Modal
+          isOpen={true}
+          onClose={() => setResetTarget(null)}
+          title={`Reset Password for ${resetTarget.username}`}
+          subtitle="Set a new temporary password. Operator will be required to change it at next login."
+          footer={(
+            <>
+              <Button variant="secondary" onClick={() => setResetTarget(null)}>Cancel</Button>
+              <Button variant="danger" onClick={submitReset} isLoading={submitting}>Reset Password</Button>
+            </>
+          )}
+        >
+          <form onSubmit={submitReset} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <FormField label="Temporary Password" required>
+              <Input
+                type="password"
+                required
+                value={resetForm.temporary_password}
+                onChange={(e) => setResetForm({ ...resetForm, temporary_password: e.target.value })}
+              />
+            </FormField>
+
+            <FormField label="Confirm Temporary Password" required>
+              <Input
+                type="password"
+                required
+                value={resetForm.confirm_temporary_password}
+                onChange={(e) => setResetForm({ ...resetForm, confirm_temporary_password: e.target.value })}
+              />
+            </FormField>
+
+            <FormField label="Reason for Reset" required>
+              <Input
+                required
+                placeholder="e.g. Requested by user / credential rotation"
+                value={resetForm.reason}
+                onChange={(e) => setResetForm({ ...resetForm, reason: e.target.value })}
+              />
+            </FormField>
+          </form>
+        </Modal>
+      )}
+    </div>
   );
 }

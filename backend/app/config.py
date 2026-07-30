@@ -54,6 +54,9 @@ class Settings:
   qa_runs_root: Path = field(default_factory=lambda: _path('AUTOQA_QA_RUNS_ROOT', PROJECT_ROOT / 'qa' / 'reports' / 'runs'))
   database_url: str = field(default_factory=lambda: os.getenv('DATABASE_URL', 'sqlite:///./data/autoqa.db'))
   frontend_url: str = field(default_factory=lambda: os.getenv('AUTOQA_FRONTEND_URL', 'http://127.0.0.1:5173'))
+  mock_task_portal_url: str = field(default_factory=lambda: os.getenv('AUTOQA_MOCK_TASK_PORTAL_URL', 'http://127.0.0.1:8001'))
+  demo_product_url: str = field(default_factory=lambda: os.getenv('AUTOQA_DEMO_PRODUCT_URL', 'http://127.0.0.1:5175'))
+  backend_self_url: str = field(default_factory=lambda: os.getenv('AUTOQA_BACKEND_SELF_URL', 'http://127.0.0.1:8000'))
   allowed_environments: tuple[str, ...] = field(default_factory=lambda: _csv('AUTOQA_ALLOWED_ENVIRONMENTS', 'local,development,qa,staging'))
   blocked_actions: tuple[str, ...] = field(default_factory=lambda: _csv('AUTOQA_BLOCKED_ACTIONS', 'payment_execution,payroll_execution,record_deletion,approval_execution,iiot_machine_control'))
   run_timeout_seconds: int = field(default_factory=lambda: _get_int('AUTOQA_RUN_TIMEOUT_SECONDS', 900, 5, 3600))
@@ -146,10 +149,19 @@ class Settings:
     if errors:
       raise RuntimeError('Invalid AutoQA environment configuration: ' + ' '.join(errors))
 
+  @property
+  def visual_baselines_root(self) -> Path:
+    return self.data_root / 'visual_baselines'
+
+  @property
+  def visual_runs_root(self) -> Path:
+    return self.data_root / 'visual_runs'
+
   def prepare_directories(self) -> None:
     self.validate()
-    for path in (self.data_root, self.artifact_root, self.evidence_root, self.export_root, self.qa_runs_root, self.runtime_root, self.log_root, self.pid_root, self.temp_root, self.backup_root):
+    for path in (self.data_root, self.artifact_root, self.evidence_root, self.export_root, self.visual_baselines_root, self.visual_runs_root, self.qa_runs_root, self.runtime_root, self.log_root, self.pid_root, self.temp_root, self.backup_root):
       path.mkdir(parents=True, exist_ok=True)
+
 
 
 settings = Settings()

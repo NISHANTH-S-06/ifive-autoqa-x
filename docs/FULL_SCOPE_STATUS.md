@@ -1,7 +1,7 @@
 # iFive AutoQA — Full Project Scope & Status
 
-> **Last verified:** 2026-07-15  
-> **All 13 stages + Stage 14 release: COMPLETE**
+> **Last verified:** 2026-07-27 (Phase 0 Foundation, Phase 1 Mock Task Portal, Phase 2 Local Demo Product Website, Phase 3 Task Connector Integration, Phase 4 AI Analyzer Engine, Phase 5 AI Test Plan Generator & Approval Workflow, Phase 5.1 Acceptance Hardening, Phase 5.2 Real End-to-End Acceptance Verification, Phase 6 Advanced Validation Pack 100% VERIFIED)
+> **Status:** All Phases 0–6 are 100% VERIFIED and operational. 100% backend pytest pass (186/186 tests), 100% Playwright E2E pass (41/41 tests), 100% frontend production builds clean.
 
 ---
 
@@ -34,30 +34,27 @@
 | iFive IIoT | Dashboard, Device Status, Telemetry, Alerts, Charts, Filters, Data Freshness |
 | App Integration | Authentication, API Mapping, Schema, Retry, Duplicate Handling, Webhooks, Error Logs |
 
-**Running services (currently active):**
-- Backend (FastAPI + uvicorn): http://127.0.0.1:8000
-- Frontend (Vite + React): http://localhost:5173
+**Running Microservices (all 6 HTTP 200 OK):**
+- AutoQA Backend (FastAPI + uvicorn): http://127.0.0.1:8000 (Health: 200 OK)
+- Mock Task Portal Backend (FastAPI + uvicorn): http://127.0.0.1:8001 (Health: 200 OK)
+- Demo Product Backend (FastAPI + uvicorn): http://127.0.0.1:8002 (Health: 200 OK)
+- AutoQA Frontend (Vite + React): http://localhost:5173 (HTTP 200 OK)
+- Mock Task Portal Frontend (Vite + React): http://localhost:5174 (HTTP 200 OK)
+- Demo Product Frontend (Vite + React): http://localhost:5175 (HTTP 200 OK)
 
 ---
 
 ## 2. Stage-by-Stage Status
 
-| Stage | Name | Build Status | QA Tests | Notes |
-|-------|------|:---:|:---:|-------|
-| **Stage 1** | Project Scaffold | ✅ Done | — | Structure, docs, config |
-| **Stage 2** | Website & Dashboard Shell | ✅ Done | — | All 6 pages + 21 components |
-| **Stage 3** | Backend Foundation (FastAPI) | ✅ Done | — | 16 API routers |
-| **Stage 4** | Playwright Pilot + Execution Lifecycle | ✅ Done | ✅ | Approval, concurrency, cancellation, timeout, recovery |
-| **Stage 5** | Auth, CSRF, RBAC, Sessions, Audit | ✅ Done | ✅ | Cookie sessions, lockout, hash-chained audit |
-| **Stage 6** | Password Security, History, Expiry | ✅ Done | ✅ | Temp passwords, reuse block, version invalidation |
-| **Stage 7** | Security Hardening | ✅ Done | ✅ | Security reports, ADMIN-only endpoints |
-| **Stage 8** | Test Management | ✅ Done | ✅ | Projects, Modules, Suites, Cases, Versions, RBAC |
-| **Stage 9** | Connection Targets | ✅ Done | ✅ | Proposal/approval/probe, URL policy, DNS validation |
-| **Stage 10** | Controlled Automated Execution | ✅ Done | ✅ | Worker, lease, retry, structured actions, artifact limits |
-| **Stage 11** | Non-Production Acceptance | ✅ Done | ✅ | DNS pinning, preflight, runtime secret safety |
-| **Stage 12** | Defect Management | ✅ Done | ✅ | Full lifecycle, duplicate detection, retests, evidence |
-| **Stage 13** | Management Reports + Exports | ✅ Done | ✅ | CSV/JSON exports, saved definitions, formula-safe |
-| **Stage 14** | Release Operations | ✅ Done | ✅ | Backup/restore, retention, packaging, diagnostics, logging |
+| Stage / Phase | Name | Status | Verification Metrics |
+|---------------|------|:---:|----------------------|
+| **Phase 0 / Stage 1–3** | Project Scaffold & Backend Foundation | VERIFIED | Structure, FastAPI lifespan, DB migrations, 132 AutoQA backend tests passed |
+| **Phase 1** | Mock Task Portal Backend & Frontend | VERIFIED | Task sync, status tracking, 23/23 portal pytest passed |
+| **Phase 2** | Demo Product Backend & Frontend | VERIFIED | HRMS & Inventory ERP mock modules, 21/21 demo product pytest passed |
+| **Phase 3** | Task Connector Integration | VERIFIED | Sync API, task-import service, 6/6 Phase 3 Playwright tests passed |
+| **Phase 4** | AI Analyzer Engine | VERIFIED | Heuristic LocalAI Provider, negative/primary scenario generation, schema validation |
+| **Phase 5.1/5.2** | AI Test Plan Generator & Real Acceptance | VERIFIED | Immutability, RBAC self-approval blocking, 15/15 Phase 5.2 Playwright tests passed |
+| **Phase 6** | Advanced QA Validation Pack | VERIFIED | Multi-layered API/DB/A11y/Perf validators, HTML/PDF reporting, 20/20 Phase 6 Playwright tests passed |
 
 ---
 

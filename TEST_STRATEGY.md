@@ -74,3 +74,35 @@ Playwright tests use a local mock target and mocked AutoQA APIs to display the S
 Backend tests cover direct and source-based defect creation, manual and automated failed-result linking, duplicate warning/confirmation, RBAC, CSRF, cross-project rejection, secret-like content rejection, lifecycle transitions, assignment, closure requirements, retest state control, append-only defect comments/history/retests, evidence/artifact links, traceability endpoints, and audit-chain validity.
 
 Playwright tests use mocked local AutoQA API data to create a defect from a failed automated run, confirm source evidence and traceability, add comments, move through triage/assignment/fix/ready/retest/closure with separate roles, verify viewer restrictions, check responsive layouts at 320, 375, 768, 1024, and 1440 pixels, and confirm browser storage does not contain password, token, or cookie strings. No Playwright test connects to a real iFive URL for Stage 12.
+
+## Phase 4 Test Strategy
+
+Backend tests cover LocalAIProvider heuristics for keyword detection (employee, stock, inventory), unspecific generic task missing information detection (`NEED_CLARITY`), task import synchronization, and schema validation.
+
+## Phase 5 / 5.1 / 5.2 Test Strategy
+
+Backend tests cover test plan models, versioning, scenario generation, submit/approve/reject lifecycle workflows, developer self-approval blocking (403), code/secret injection rejection (400/422), and frozen plan hash execution proofs.
+
+Playwright E2E tests (`qa/tests/phase5-real-acceptance.spec.ts`, 15/15 passed) verify the complete end-to-end acceptance flow against the real Demo Product (`http://127.0.0.1:5175`) including Employee HR management, Stock Count inventory verification, generic form supported/unsupported flows, self-approval blocking, plan immutability enforcement, revision draft bumps, and Phase 3.1 regression checks.
+
+## Phase 6 Test Strategy — Advanced QA Validation Pack
+
+Backend tests (`backend/tests/test_phase6_advanced_validation.py`, 10/10 passed) cover:
+- API Validation approved origin enforcement and bad method rejection.
+- Database Validation read-only SQL AST parsing (`SELECT`, `WITH`), mutating keyword rejection (`INSERT`, `UPDATE`, `DELETE`, `DROP`), and missing row handling.
+- Accessibility severity mapping against WCAG 2.1 AA rules.
+- Performance metric threshold classification (`PASS`, `PASS_WITH_WARNINGS`, `FAIL`, `BLOCKED`).
+- Evidence completeness validation.
+- Unified result aggregation precedence (`BLOCKED > FAIL > PASS_WITH_WARNINGS > PASS`) and defect deduplication.
+- Local schedule cron rules and report generation.
+
+Playwright E2E tests (`qa/tests/phase6-advanced-validation.spec.ts`, 20/20 passed) verify:
+- Employee & Stock Count UI + API + DB multi-layered validation PASS.
+- API status code mismatch FAIL detection.
+- Database query missing row FAIL & profile unavailable BLOCKED detection.
+- Accessibility non-blocking scan warning vs critical FAIL detection.
+- Performance warning vs threshold failure detection.
+- Unexpected browser console errors & 5xx server errors FAIL detection.
+- Missing evidence & plan hash mismatch FAIL detection.
+- Defect duplicate suppression and HTML/PDF report downloading with SHA-256 signatures.
+- Local schedule execution and cross-project access denial (403).

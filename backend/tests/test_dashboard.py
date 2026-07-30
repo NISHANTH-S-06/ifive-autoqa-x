@@ -35,6 +35,6 @@ def test_dashboard_summary_calculations(client, db, project_payload):
 def test_seed_is_idempotent(db):
   from app.seed import seed_local_projects
 
-  assert seed_local_projects(db) == 6
+  assert seed_local_projects(db) == 8
   assert seed_local_projects(db) == 0
-  assert len(db.query(Project).all()) == 6
+  assert len(db.query(Project).all()) == 8

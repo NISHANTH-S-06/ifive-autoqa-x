@@ -1,11 +1,13 @@
 from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import hashlib
+import base64
 import json
 import threading
 import time
 
 from sqlalchemy import text
+from sqlalchemy.orm import sessionmaker
 
 from app.models.automated_execution import AutomatedRun, ExecutionArtifact, ExecutionJob, ExecutionWorker
 from app.models.connection_target import ConnectionTarget
@@ -13,11 +15,12 @@ from app.models.operator import Operator
 from app.models.operator_session import OperatorSession
 from app.models.test_management import ManagedTestCase, ManagedTestSuite, TestCaseStep, TestModule, TestProject
 from app.services.audit_service import verify_chain
-from app.services.automated_execution import ONE_PIXEL_PNG, store_artifact
+from app.services.automated_execution import claim_next_job, execute_next_job, store_artifact
 from app.services.password_service import hash_password, hash_secret
 from app.services.test_management import create_version
 
 PASSWORD_HASH = hash_password('Stage10!Fixture987')
+ONE_PIXEL_PNG = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADGAWjR9awAAAABJRU5ErkJggg==')
 
 
 def operator(db, username: str, role: str = 'VIEWER', active: bool = True, must_change: bool = False):
@@ -42,7 +45,13 @@ class MockHandler(BaseHTTPRequestHandler):
     self.send_response(200)
     self.send_header('Content-Type', 'text/html')
     self.end_headers()
-    self.wfile.write(b'<html><head><title>Stage10 Mock</title></head><body><main id="ready">Ready local target</main><button id="go">Go</button></body></html>')
+    self.wfile.write(b'''<html><head><title>Stage10 Mock</title></head><body>
+      <main id="ready">Ready local target</main>
+      <form id="fixture"><input id="fixture-input"/><button id="fixture-submit" type="button">Submit</button></form>
+      <div id="fixture-result" hidden></div>
+      <button id="go">Go</button>
+      <script>document.querySelector('#fixture-submit').onclick=()=>{const value=document.querySelector('#fixture-input').value;const result=document.querySelector('#fixture-result');result.textContent='Result: '+value;result.hidden=false;};</script>
+    </body></html>''')
 
 
 def mock_target_url():
@@ -102,7 +111,7 @@ def create_approved_case(db, creator: Operator, approver: Operator, key='S10-CAS
   db.add(case); db.flush()
   for index, payload in enumerate(steps or [
     {'action': 'NAVIGATE', 'path': '/'},
-    {'action': 'ASSERT_TITLE', 'expected': 'Stage10 Mock'},
+    {'action': 'ASSERT_VISIBLE', 'selector': '#ready'},
     {'action': 'ASSERT_TEXT', 'selector': '#ready', 'expected': 'Ready local target'},
     {'action': 'SCREENSHOT'},
   ], start=1):
@@ -237,6 +246,98 @@ def test_queue_claim_cancellation_timeout_retry_and_origin_escape(auth_client, d
     server.shutdown(); thread.join(timeout=5); server.server_close()
 
 
+def test_atomic_worker_claim_prevents_duplicate_claim(auth_client, db):
+  server, thread, base_url = mock_target_url()
+  try:
+    tester, tester_headers, approver, approver_headers, target = approve_stage9_target(auth_client, db, base_url)
+    target = approve_execution_target(auth_client, db, target['id'], tester, approver)
+    case = create_approved_case(db, tester, approver, 'S10-ATOMIC-CLAIM')
+    tester_headers = session_login(auth_client, db, tester, 'stage10-atomic-claim-create-token')
+    created = create_run(auth_client, target['id'], case.id, tester_headers, 'Atomic Claim Run').json()
+    run_id = created['id']
+    auth_client.post(f'/api/automated-runs/{run_id}/submit', headers=tester_headers)
+    approver_headers = session_login(auth_client, db, approver, 'stage10-atomic-claim-approve-token')
+    auth_client.post(f'/api/automated-runs/{run_id}/approve', headers=approver_headers)
+    assert auth_client.post('/api/execution-workers/heartbeat', json={'worker_key': 'stage10-claim-worker-a'}, headers=approver_headers).status_code == 200
+    assert auth_client.post(f'/api/automated-runs/{run_id}/queue', headers=approver_headers).status_code == 200
+
+    Session = sessionmaker(bind=db.get_bind(), autocommit=False, autoflush=False)
+    first = Session()
+    second = Session()
+    try:
+      claimed = [claim_next_job(first, 'stage10-claim-worker-a')]
+      first.commit()
+      claimed.append(claim_next_job(second, 'stage10-claim-worker-b'))
+      second.commit()
+      assert sum(job is not None for job in claimed) == 1
+      db.expire_all()
+      job = db.query(ExecutionJob).filter_by(run_id=run_id).one()
+      assert job.status == 'RUNNING'
+      assert job.lease_owner in {'stage10-claim-worker-a', 'stage10-claim-worker-b'}
+      assert job.attempts == 1
+    finally:
+      first.close()
+      second.close()
+  finally:
+    server.shutdown(); thread.join(timeout=5); server.server_close()
+
+
+def test_cancelled_run_is_not_overwritten_by_stale_worker_completion(auth_client, db):
+  from unittest.mock import patch
+
+  server, thread, base_url = mock_target_url()
+  try:
+    tester, tester_headers, approver, approver_headers, target = approve_stage9_target(auth_client, db, base_url)
+    target = approve_execution_target(auth_client, db, target['id'], tester, approver)
+    case = create_approved_case(db, tester, approver, 'S10-STALE-CANCEL', [
+      {'action': 'NAVIGATE', 'path': '/'},
+      {'action': 'ASSERT_VISIBLE', 'selector': '#ready'},
+    ])
+    tester_headers = session_login(auth_client, db, tester, 'stage10-stale-cancel-create-token')
+    created = create_run(auth_client, target['id'], case.id, tester_headers, 'Stale Completion Run').json()
+    run_id = created['id']
+    auth_client.post(f'/api/automated-runs/{run_id}/submit', headers=tester_headers)
+    approver_headers = session_login(auth_client, db, approver, 'stage10-stale-cancel-approve-token')
+    auth_client.post(f'/api/automated-runs/{run_id}/approve', headers=approver_headers)
+    assert auth_client.post('/api/execution-workers/heartbeat', json={'worker_key': 'stage10-stale-worker'}, headers=approver_headers).status_code == 200
+    assert auth_client.post(f'/api/automated-runs/{run_id}/queue', headers=approver_headers).status_code == 200
+
+    Session = sessionmaker(bind=db.get_bind(), autocommit=False, autoflush=False)
+
+    def cancel_during_browser(_db, _target, _run):
+      cancelling = Session()
+      try:
+        cancelled = cancelling.get(AutomatedRun, run_id)
+        cancelled.status = 'CANCELLED'
+        cancelled.cancelled_by = tester.id
+        cancelled.cancelled_at = datetime.utcnow()
+        cancelled.completed_at = datetime.utcnow()
+        for job in cancelling.query(ExecutionJob).filter_by(run_id=run_id):
+          job.status = 'CANCELLED'
+          job.lease_owner = None
+          job.lease_expires_at = None
+        cancelling.commit()
+      finally:
+        cancelling.close()
+      return [
+        {'execution_id': 1, 'status': 'PASSED', 'duration_ms': 1},
+        {'execution_id': 2, 'status': 'PASSED', 'duration_ms': 1},
+      ]
+
+    with patch('app.services.automated_execution.run_playwright', side_effect=cancel_during_browser):
+      result = execute_next_job(db, 'stage10-stale-worker')
+      db.commit()
+
+    db.expire_all()
+    persisted = db.get(AutomatedRun, run_id)
+    assert result.id == run_id
+    assert persisted.status == 'CANCELLED'
+    assert persisted.cancelled_by == tester.id
+    assert db.query(ExecutionJob).filter_by(run_id=run_id).one().status == 'CANCELLED'
+  finally:
+    server.shutdown(); thread.join(timeout=5); server.server_close()
+
+
 # ---------------------------------------------------------------------------
 # Regression tests for the db.flush() fix (artifact id was None before patch)
 # ---------------------------------------------------------------------------
@@ -344,4 +445,3 @@ def test_screenshot_step_records_numeric_evidence_id(auth_client, db):
       assert numeric_id > 0, f'Artifact id in evidence message is not positive: {numeric_id}'
   finally:
     server.shutdown(); thread.join(timeout=5); server.server_close()
-

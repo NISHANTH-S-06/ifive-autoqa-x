@@ -4,6 +4,8 @@ from sqlalchemy import Boolean, DateTime, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+from app.models.project_membership import ProjectMember
+from app.models.test_run import TestRun
 
 
 class Project(Base):

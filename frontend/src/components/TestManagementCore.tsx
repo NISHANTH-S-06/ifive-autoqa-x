@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useMemo, useState } from 'react';
+import React, { type FormEvent, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../authContext';
 import {
   approveTestCase,
@@ -28,10 +28,19 @@ import {
 import type { ManualEvidence, ManualRun, ManualRunCase, ManualResultStatus, TestCase, TestCaseStep, TestCaseVersion, TestModule, TestProject, TestSuite } from '../types/testManagement';
 import { fetchProjects as fetchCoreProjects } from '../services/testRuns';
 import type { Project } from '../types/product';
+import { 
+  FolderKanban, FileText, CheckSquare, PlayCircle, FolderPlus, 
+  Layers, PackagePlus, Search, Filter, CheckCircle2, XCircle, 
+  AlertCircle, Eye, Plus, ArrowUp, ArrowDown, Trash2
+} from 'lucide-react';
 
 const emptyStep = (step_number: number): TestCaseStep => ({ step_number, action: '', expected_result: '', test_data: '' });
 
-export function TestManagementCore() {
+interface TestManagementCoreProps {
+  hideTitle?: boolean;
+}
+
+export function TestManagementCore({ hideTitle = false }: TestManagementCoreProps) {
   const { operator } = useAuth();
   const [tab, setTab] = useState<'projects' | 'cases' | 'review' | 'runs'>('projects');
   const [projects, setProjects] = useState<TestProject[]>([]);
@@ -219,20 +228,489 @@ export function TestManagementCore() {
     catch (reason) { setError(reason instanceof Error ? reason.message : 'Evidence upload failed.'); }
   };
 
-  return <section className="section" id="test-management"><div className="section-inner">
-    <div className="section-title"><h2>Test Management</h2><p>Manage manual test design, approval, versions, and execution.</p></div>
-    <div className="tabbar" role="tablist" aria-label="Test management views">{(['projects','cases','review','runs'] as const).map((item) => <button key={item} className={`button ${tab === item ? 'button-primary' : 'button-secondary'}`} onClick={() => setTab(item)}>{item === 'projects' ? 'Projects' : item === 'cases' ? 'Test Cases' : item === 'review' ? 'Review' : 'Manual Runs'}</button>)}</div>
-    {loading && <div className="state-panel" role="status">Loading test management...</div>}
-    {error && <div className="state-panel state-error" role="alert">{error}<button className="button button-secondary" onClick={() => void load()}>Retry</button></div>}
-    {message && <div className="state-panel" role="status">{message}</div>}
-    {validation && <div className="state-panel state-error" role="alert">{validation}</div>}
-    {!loading && tab === 'projects' && <div className="split">
-      <div className="card"><h3>Projects</h3>{projects.length === 0 && <div className="state-panel">No test projects yet.</div>}{projects.map((project) => <div className="tm-row" key={project.id}><strong>{project.code}</strong><span>{project.name}</span><span>{project.status}</span></div>)}</div>
-      {canManage && <div className="card"><h3>Create Structure</h3><form className="admin-form" onSubmit={submitProject}><label>Access project<select required value={projectForm.access_project_id} onChange={(event) => setProjectForm({ ...projectForm, access_project_id: Number(event.target.value) })}>{coreProjects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label><label>Project name<input required value={projectForm.name} onChange={(event) => setProjectForm({ ...projectForm, name: event.target.value })} /></label><label>Project code<input required value={projectForm.code} onChange={(event) => setProjectForm({ ...projectForm, code: event.target.value })} /></label><label>Description<input value={projectForm.description} onChange={(event) => setProjectForm({ ...projectForm, description: event.target.value })} /></label><button className="button button-primary" disabled={submitting || projectForm.access_project_id === 0}>Create Project</button></form><form className="admin-form" onSubmit={submitModule}><label>Project<select value={moduleForm.project_id} onChange={(event) => setModuleForm({ ...moduleForm, project_id: Number(event.target.value) })}>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label><label>Module name<input required value={moduleForm.name} onChange={(event) => setModuleForm({ ...moduleForm, name: event.target.value })} /></label><label>Module code<input required value={moduleForm.code} onChange={(event) => setModuleForm({ ...moduleForm, code: event.target.value })} /></label><button className="button button-primary" disabled={submitting}>Create Module</button></form><form className="admin-form" onSubmit={submitSuite}><label>Project<select value={suiteForm.project_id} onChange={(event) => setSuiteForm({ ...suiteForm, project_id: Number(event.target.value) })}>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label><label>Module<select value={suiteForm.module_id} onChange={(event) => setSuiteForm({ ...suiteForm, module_id: Number(event.target.value) })}>{modules.filter((item) => item.project_id === suiteForm.project_id).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label>Suite name<input required value={suiteForm.name} onChange={(event) => setSuiteForm({ ...suiteForm, name: event.target.value })} /></label><label>Suite code<input required value={suiteForm.code} onChange={(event) => setSuiteForm({ ...suiteForm, code: event.target.value })} /></label><button className="button button-primary" disabled={submitting}>Create Suite</button></form></div>}
-    </div>}
-    {!loading && tab === 'cases' && <div className="card"><h3>Test Cases</h3><div className="tm-filters"><label>Search<input value={search} onChange={(event) => setSearch(event.target.value)} /></label><label>State<select value={stateFilter} onChange={(event) => setStateFilter(event.target.value)}><option value="">All</option><option>DRAFT</option><option>IN_REVIEW</option><option>APPROVED</option><option>REJECTED</option></select></label><button className="button button-secondary" onClick={() => { setSearch(''); setStateFilter(''); void load(); }}>Clear Filters</button><button className="button button-primary" onClick={() => void load()}>Apply</button></div>{cases.length === 0 && <div className="state-panel">No test cases match the filters.</div>}<div className="tm-table">{cases.map((item) => <div className="tm-case-row" key={item.id}><strong>{item.case_key}</strong><span>{item.title}</span><span className="role-badge">{item.lifecycle_state}</span><span>{item.priority}</span><span>v{item.current_version}</span><span className="table-actions">{item.lifecycle_state === 'DRAFT' && item.created_by === operator.id && <button className="button button-secondary" onClick={() => void lifecycle('submit', item)}>Submit</button>}{canReview && item.lifecycle_state === 'IN_REVIEW' && item.created_by !== operator.id && <button className="button button-primary" onClick={() => void lifecycle('approve', item)}>Approve</button>}{canReview && item.lifecycle_state === 'IN_REVIEW' && item.created_by !== operator.id && <button className="button button-secondary" onClick={() => void lifecycle('reject', item)}>Reject</button>}{canReview && item.lifecycle_state === 'IN_REVIEW' && item.created_by === operator.id && <button className="button button-secondary" disabled>Self Approval Blocked</button>}<button className="button button-secondary" onClick={() => void openVersions(item)}>Versions</button><button className="button button-secondary" onClick={() => void lifecycle('archive', item)}>Archive</button></span></div>)}</div>{canAuthor && <form className="tm-editor" onSubmit={submitCase}><h3>Case Editor</h3><label>Project<select value={caseForm.project_id} onChange={(event) => { setCaseForm({ ...caseForm, project_id: Number(event.target.value) }); setDirty(true); }}>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label><label>Module<select value={caseForm.module_id} onChange={(event) => { setCaseForm({ ...caseForm, module_id: Number(event.target.value) }); setDirty(true); }}>{modules.filter((item) => item.project_id === caseForm.project_id).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label>Suite<select value={caseForm.suite_id} onChange={(event) => { setCaseForm({ ...caseForm, suite_id: Number(event.target.value) }); setDirty(true); }}>{suites.filter((item) => item.project_id === caseForm.project_id && item.module_id === caseForm.module_id).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label>Case key<input required value={caseForm.case_key} onChange={(event) => { setCaseForm({ ...caseForm, case_key: event.target.value }); setDirty(true); }} /></label><label>Title<input required value={caseForm.title} onChange={(event) => { setCaseForm({ ...caseForm, title: event.target.value }); setDirty(true); }} /></label><label>Objective<textarea value={caseForm.objective} onChange={(event) => { setCaseForm({ ...caseForm, objective: event.target.value }); setDirty(true); }} /></label><label>Preconditions<textarea value={caseForm.preconditions} onChange={(event) => { setCaseForm({ ...caseForm, preconditions: event.target.value }); setDirty(true); }} /></label><label>Priority<select value={caseForm.priority} onChange={(event) => setCaseForm({ ...caseForm, priority: event.target.value })}><option>LOW</option><option>MEDIUM</option><option>HIGH</option><option>CRITICAL</option></select></label><label>Tags<input value={caseForm.tags} onChange={(event) => setCaseForm({ ...caseForm, tags: event.target.value })} /></label><div className="tm-steps">{caseForm.steps.map((step, index) => <div className="tm-step" key={step.step_number}><strong>Step {step.step_number}</strong><label>Action<input aria-label={`Action ${step.step_number}`} value={step.action} onChange={(event) => { const next = [...caseForm.steps]; next[index] = { ...step, action: event.target.value }; setCaseForm({ ...caseForm, steps: next }); setDirty(true); }} /></label><label>Expected result<input aria-label={`Expected result ${step.step_number}`} value={step.expected_result} onChange={(event) => { const next = [...caseForm.steps]; next[index] = { ...step, expected_result: event.target.value }; setCaseForm({ ...caseForm, steps: next }); setDirty(true); }} /></label><label>Test data<input aria-label={`Test data ${step.step_number}`} value={step.test_data ?? ''} onChange={(event) => { const next = [...caseForm.steps]; next[index] = { ...step, test_data: event.target.value }; setCaseForm({ ...caseForm, steps: next }); setDirty(true); }} /></label><div className="table-actions"><button type="button" className="button button-secondary" onClick={() => moveStep(index, -1)}>Up</button><button type="button" className="button button-secondary" onClick={() => moveStep(index, 1)}>Down</button><button type="button" className="button button-secondary" onClick={() => removeStep(index)}>Remove</button></div></div>)}</div><button type="button" className="button button-secondary" onClick={addStep}>Add Step</button><button className="button button-primary" disabled={submitting}>Create Draft</button></form>}</div>}
-    {!loading && tab === 'review' && <div className="card"><h3>Awaiting Review</h3>{reviewCases.length === 0 && <div className="state-panel">No cases awaiting review.</div>}{reviewCases.map((item) => <div className="tm-case-row" key={item.id}><strong>{item.case_key}</strong><span>{item.title}</span><span>Creator {item.created_by}</span><span>{item.created_by === operator.id ? 'Self approval blocked' : 'Ready'}</span><span className="table-actions"><button className="button button-primary" disabled={!canReview || item.created_by === operator.id} onClick={() => void lifecycle('approve', item)}>Approve</button><button className="button button-secondary" disabled={!canReview || item.created_by === operator.id} onClick={() => void lifecycle('reject', item)}>Reject</button></span></div>)}</div>}
-    {!loading && tab === 'runs' && <div className="split"><div className="card"><h3>Manual Runs</h3>{runs.length === 0 && <div className="state-panel">No manual runs yet.</div>}{runs.map((run) => <div className="tm-row" key={run.id}><strong>{run.run_key}</strong><span>{run.name}</span><span>{run.status}</span><span>{run.progress}</span><button className="button button-secondary" onClick={() => void openRun(run)}>Open</button>{run.status === 'PLANNED' && <button className="button button-primary" onClick={() => void startManualRun(run.id).then(load)}>Start</button>}{run.status === 'IN_PROGRESS' && <button className="button button-primary" onClick={() => void completeManualRun(run.id).then(load)}>Complete</button>}</div>)}{canAuthor && <form className="admin-form" onSubmit={submitRun}><label>Project<select value={runForm.project_id} onChange={(event) => setRunForm({ ...runForm, project_id: Number(event.target.value) })}>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label><label>Suite<select value={runForm.suite_id} onChange={(event) => setRunForm({ ...runForm, suite_id: Number(event.target.value) })}>{suites.filter((suite) => suite.project_id === runForm.project_id).map((suite) => <option key={suite.id} value={suite.id}>{suite.name}</option>)}</select></label><label>Run name<input required value={runForm.name} onChange={(event) => setRunForm({ ...runForm, name: event.target.value })} /></label><fieldset><legend>Approved cases</legend>{approvedCases.map((item) => <label key={item.id}><input type="checkbox" checked={runForm.case_ids.includes(item.id)} onChange={(event) => setRunForm((current) => ({ ...current, case_ids: event.target.checked ? [...current.case_ids, item.id] : current.case_ids.filter((id) => id !== item.id) }))} />{item.case_key} v{item.current_version}</label>)}</fieldset><button className="button button-primary" disabled={submitting}>Create Manual Run</button></form>}</div><div className="card"><h3>Manual Execution</h3>{!selectedRun && <div className="state-panel">Open a manual run to record results.</div>}{selectedRun && <><p><strong>{selectedRun.run_key}</strong> {selectedRun.status}</p><select aria-label="Run case" value={selectedRunCase?.id ?? ''} onChange={async (event) => { const next = runCases.find((item) => item.id === Number(event.target.value)) ?? null; setSelectedRunCase(next); if (next) setEvidence(await fetchManualEvidence(selectedRun.id, next.id)); }}>{runCases.map((item) => <option key={item.id} value={item.id}>Case {item.test_case_id} v{item.test_case_version} - {item.status}</option>)}</select><label>Result<select value={resultForm.status} onChange={(event) => setResultForm({ ...resultForm, status: event.target.value as ManualResultStatus })}><option>PASSED</option><option>FAILED</option><option>BLOCKED</option><option>SKIPPED</option></select></label><label>Actual result<textarea value={resultForm.actual_result} onChange={(event) => setResultForm({ ...resultForm, actual_result: event.target.value })} /></label><label>Notes<textarea value={resultForm.notes} onChange={(event) => setResultForm({ ...resultForm, notes: event.target.value })} /></label><button className="button button-primary" onClick={() => void saveResult()}>Save Progress</button><label>Evidence<input type="file" onChange={(event) => void uploadEvidence(event.target.files?.[0])} /></label>{evidence.length === 0 ? <div className="state-panel">No evidence uploaded.</div> : evidence.map((item) => <div className="tm-row" key={item.id}><span>{item.original_filename}</span><span>{item.evidence_type}</span><span>{item.size_bytes} bytes</span><a className="button button-secondary" href={evidenceDownloadUrl(item.id)} target="_blank" rel="noreferrer">Download</a></div>)}</>}</div></div>}
-    {selectedCase && <div className="modal-backdrop"><div className="modal" role="dialog" aria-modal="true" aria-labelledby="versions-title"><h3 id="versions-title">Version History</h3>{versions.map((version) => <div className="tm-row" key={version.id}><strong>v{version.version_number}</strong><span>{version.source_state}</span><span>{version.change_summary}</span></div>)}<div className="modal-actions"><button className="button button-secondary" onClick={() => setSelectedCase(null)}>Close</button></div></div></div>}
-  </div></section>;
+  return (
+    <section className="section" id="test-management">
+      {!hideTitle && (
+        <div className="section-title">
+          <h2>Test Management</h2>
+          <p>Manage manual test design, approval, versions, and execution.</p>
+        </div>
+      )}
+
+      {/* Styled Glassmorphic Tab Navigator with Bulletproof Fallback Styles */}
+      <div 
+        className="tabbar" 
+        role="tablist" 
+        aria-label="Test management views"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          padding: '0.4rem',
+          backgroundColor: 'var(--bg-card-subtle, rgba(255, 255, 255, 0.03))',
+          border: '1px solid var(--border-color, rgba(255, 255, 255, 0.1))',
+          borderRadius: 'var(--radius-lg, 12px)',
+          marginBottom: '1.25rem',
+          flexWrap: 'wrap'
+        }}
+      >
+        <button 
+          className={`btn ${tab === 'projects' ? 'btn-primary button-primary' : 'btn-secondary button-secondary'}`} 
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            padding: '0.5rem 1rem',
+            borderRadius: '8px',
+            fontWeight: 600,
+            fontSize: '0.85rem',
+            cursor: 'pointer',
+            border: 'none',
+            backgroundColor: tab === 'projects' ? 'var(--color-primary, #2563eb)' : 'transparent',
+            color: tab === 'projects' ? '#ffffff' : 'var(--text-muted, #94a3b8)',
+            transition: 'all 0.15s ease'
+          }}
+          onClick={() => setTab('projects')}
+        >
+          <FolderKanban size={16} /> Projects & Structure
+        </button>
+        <button 
+          className={`btn ${tab === 'cases' ? 'btn-primary button-primary' : 'btn-secondary button-secondary'}`} 
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            padding: '0.5rem 1rem',
+            borderRadius: '8px',
+            fontWeight: 600,
+            fontSize: '0.85rem',
+            cursor: 'pointer',
+            border: 'none',
+            backgroundColor: tab === 'cases' ? 'var(--color-primary, #2563eb)' : 'transparent',
+            color: tab === 'cases' ? '#ffffff' : 'var(--text-muted, #94a3b8)',
+            transition: 'all 0.15s ease'
+          }}
+          onClick={() => setTab('cases')}
+        >
+          <FileText size={16} /> Test Cases
+        </button>
+        <button 
+          className={`btn ${tab === 'review' ? 'btn-primary button-primary' : 'btn-secondary button-secondary'}`} 
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            padding: '0.5rem 1rem',
+            borderRadius: '8px',
+            fontWeight: 600,
+            fontSize: '0.85rem',
+            cursor: 'pointer',
+            border: 'none',
+            backgroundColor: tab === 'review' ? 'var(--color-primary, #2563eb)' : 'transparent',
+            color: tab === 'review' ? '#ffffff' : 'var(--text-muted, #94a3b8)',
+            transition: 'all 0.15s ease'
+          }}
+          onClick={() => setTab('review')}
+        >
+          <CheckSquare size={16} /> Awaiting Review {reviewCases.length > 0 && <span className="badge badge-warning" style={{ fontSize: '0.65rem', marginLeft: '0.2rem' }}>{reviewCases.length}</span>}
+        </button>
+        <button 
+          className={`btn ${tab === 'runs' ? 'btn-primary button-primary' : 'btn-secondary button-secondary'}`} 
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            padding: '0.5rem 1rem',
+            borderRadius: '8px',
+            fontWeight: 600,
+            fontSize: '0.85rem',
+            cursor: 'pointer',
+            border: 'none',
+            backgroundColor: tab === 'runs' ? 'var(--color-primary, #2563eb)' : 'transparent',
+            color: tab === 'runs' ? '#ffffff' : 'var(--text-muted, #94a3b8)',
+            transition: 'all 0.15s ease'
+          }}
+          onClick={() => setTab('runs')}
+        >
+          <PlayCircle size={16} /> Manual Execution Runs
+        </button>
+      </div>
+
+      {loading && <div className="state-panel" role="status">Loading test management...</div>}
+      {error && <div className="state-panel state-error" role="alert">{error}<button className="btn btn-secondary button-secondary" onClick={() => void load()}>Retry</button></div>}
+      {message && <div className="state-panel" role="status">{message}</div>}
+      {validation && <div className="state-panel state-error" role="alert">{validation}</div>}
+
+      {/* TAB 1: PROJECTS & STRUCTURE */}
+      {!loading && tab === 'projects' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          {/* Projects List Card */}
+          <div className="card" style={{ padding: '1.25rem' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-main)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <FolderKanban size={18} style={{ color: 'var(--color-primary)' }} />
+              Active Test Projects
+            </h3>
+
+            {projects.length === 0 ? (
+              <div className="state-panel">No test projects created yet.</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                {projects.map((project) => (
+                  <div 
+                    className="tm-row" 
+                    key={project.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '0.75rem 1rem',
+                      backgroundColor: 'var(--bg-card-subtle, rgba(255,255,255,0.02))',
+                      border: '1px solid var(--border-color, rgba(255,255,255,0.08))',
+                      borderRadius: '8px'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                      <span style={{ fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--color-primary, #3b82f6)', fontSize: '0.9rem' }}>{project.code}</span>
+                      <span style={{ fontWeight: 500, fontSize: '0.9rem' }}>{project.name}</span>
+                    </div>
+                    <span className="badge badge-pass">{project.status || 'ACTIVE'}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* 3-Column Creation Grid */}
+          {canManage && (
+            <div>
+              <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-main)', marginBottom: '1rem' }}>
+                Create Test Structure
+              </h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.25rem' }}>
+                {/* Form 1: Create Project */}
+                <div className="card" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                  <div>
+                    <h4 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-main)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <FolderPlus size={18} style={{ color: 'var(--color-primary)' }} />
+                      Create Project
+                    </h4>
+                    <form id="proj-form" style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }} onSubmit={submitProject}>
+                      <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                        Access project
+                        <select className="input select" required value={projectForm.access_project_id} onChange={(event) => setProjectForm({ ...projectForm, access_project_id: Number(event.target.value) })} style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '6px', backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)' }}>
+                          {coreProjects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
+                        </select>
+                      </label>
+                      <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                        Project name
+                        <input className="input" required value={projectForm.name} onChange={(event) => setProjectForm({ ...projectForm, name: event.target.value })} placeholder="e.g. Demo ERP" style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '6px', backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)' }} />
+                      </label>
+                      <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                        Project code
+                        <input className="input" required value={projectForm.code} onChange={(event) => setProjectForm({ ...projectForm, code: event.target.value })} placeholder="e.g. DEMO" style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '6px', backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)' }} />
+                      </label>
+                      <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                        Description
+                        <input className="input" value={projectForm.description} onChange={(event) => setProjectForm({ ...projectForm, description: event.target.value })} placeholder="Optional description" style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '6px', backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)' }} />
+                      </label>
+                    </form>
+                  </div>
+                  <button form="proj-form" className="btn btn-primary button button-primary" style={{ marginTop: '1.25rem', width: '100%', padding: '0.6rem 1rem', borderRadius: '6px', fontWeight: 600, cursor: 'pointer' }} disabled={submitting || projectForm.access_project_id === 0}>
+                    Create Project
+                  </button>
+                </div>
+
+                {/* Form 2: Create Module */}
+                <div className="card" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                  <div>
+                    <h4 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-main)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <Layers size={18} style={{ color: 'var(--color-info)' }} />
+                      Create Module
+                    </h4>
+                    <form id="mod-form" style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }} onSubmit={submitModule}>
+                      <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                        Project
+                        <select className="input select" value={moduleForm.project_id} onChange={(event) => setModuleForm({ ...moduleForm, project_id: Number(event.target.value) })} style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '6px', backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)' }}>
+                          {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
+                        </select>
+                      </label>
+                      <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                        Module name
+                        <input className="input" required value={moduleForm.name} onChange={(event) => setModuleForm({ ...moduleForm, name: event.target.value })} placeholder="e.g. HR Management" style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '6px', backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)' }} />
+                      </label>
+                      <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                        Module code
+                        <input className="input" required value={moduleForm.code} onChange={(event) => setModuleForm({ ...moduleForm, code: event.target.value })} placeholder="e.g. HR" style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '6px', backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)' }} />
+                      </label>
+                    </form>
+                  </div>
+                  <button form="mod-form" className="btn btn-primary button button-primary" style={{ marginTop: '1.25rem', width: '100%', padding: '0.6rem 1rem', borderRadius: '6px', fontWeight: 600, cursor: 'pointer' }} disabled={submitting || projects.length === 0}>
+                    Create Module
+                  </button>
+                </div>
+
+                {/* Form 3: Create Suite */}
+                <div className="card" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                  <div>
+                    <h4 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-main)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <PackagePlus size={18} style={{ color: 'var(--color-accent)' }} />
+                      Create Suite
+                    </h4>
+                    <form id="suite-form" style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }} onSubmit={submitSuite}>
+                      <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                        Project
+                        <select className="input select" value={suiteForm.project_id} onChange={(event) => setSuiteForm({ ...suiteForm, project_id: Number(event.target.value) })} style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '6px', backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)' }}>
+                          {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
+                        </select>
+                      </label>
+                      <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                        Module
+                        <select className="input select" value={suiteForm.module_id} onChange={(event) => setSuiteForm({ ...suiteForm, module_id: Number(event.target.value) })} style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '6px', backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)' }}>
+                          {modules.filter((item) => item.project_id === suiteForm.project_id).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+                        </select>
+                      </label>
+                      <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                        Suite name
+                        <input className="input" required value={suiteForm.name} onChange={(event) => setSuiteForm({ ...suiteForm, name: event.target.value })} placeholder="e.g. Employee Directory" style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '6px', backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)' }} />
+                      </label>
+                      <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                        Suite code
+                        <input className="input" required value={suiteForm.code} onChange={(event) => setSuiteForm({ ...suiteForm, code: event.target.value })} placeholder="e.g. EMP-SUITE" style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '6px', backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)' }} />
+                      </label>
+                    </form>
+                  </div>
+                  <button form="suite-form" className="btn btn-primary button button-primary" style={{ marginTop: '1.25rem', width: '100%', padding: '0.6rem 1rem', borderRadius: '6px', fontWeight: 600, cursor: 'pointer' }} disabled={submitting || modules.length === 0}>
+                    Create Suite
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB 2: TEST CASES */}
+      {!loading && tab === 'cases' && (
+        <div className="card">
+          <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-main)', marginBottom: '1rem' }}>Test Cases Directory</h3>
+          <div className="tm-filters">
+            <label>Search
+              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Filter cases..." />
+            </label>
+            <label>State
+              <select value={stateFilter} onChange={(event) => setStateFilter(event.target.value)}>
+                <option value="">All States</option>
+                <option value="DRAFT">DRAFT</option>
+                <option value="IN_REVIEW">IN_REVIEW</option>
+                <option value="APPROVED">APPROVED</option>
+                <option value="REJECTED">REJECTED</option>
+              </select>
+            </label>
+            <button className="button button-secondary" onClick={() => { setSearch(''); setStateFilter(''); void load(); }}>Clear</button>
+            <button className="button button-primary" onClick={() => void load()}>Apply Filters</button>
+          </div>
+
+          {cases.length === 0 && <div className="state-panel">No test cases match the active filters.</div>}
+
+          <div className="tm-table">
+            {cases.map((item) => (
+              <div className="tm-case-row" key={item.id}>
+                <strong style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-primary)' }}>{item.case_key}</strong>
+                <span style={{ fontWeight: 500 }}>{item.title}</span>
+                <span className={`badge badge-${item.lifecycle_state.toLowerCase()}`}>{item.lifecycle_state}</span>
+                <span>{item.priority}</span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>v{item.current_version}</span>
+                <span className="table-actions">
+                  {item.lifecycle_state === 'DRAFT' && item.created_by === operator.id && (
+                    <button className="button button-secondary" onClick={() => void lifecycle('submit', item)}>Submit</button>
+                  )}
+                  {canReview && item.lifecycle_state === 'IN_REVIEW' && item.created_by !== operator.id && (
+                    <button className="button button-primary" onClick={() => void lifecycle('approve', item)}>Approve</button>
+                  )}
+                  {canReview && item.lifecycle_state === 'IN_REVIEW' && item.created_by !== operator.id && (
+                    <button className="button button-secondary" onClick={() => void lifecycle('reject', item)}>Reject</button>
+                  )}
+                  {canReview && item.lifecycle_state === 'IN_REVIEW' && item.created_by === operator.id && (
+                    <button className="button button-secondary" disabled>Self Approval Blocked</button>
+                  )}
+                  <button className="button button-secondary" onClick={() => void openVersions(item)}>Versions</button>
+                  <button className="button button-secondary" onClick={() => void lifecycle('archive', item)}>Archive</button>
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* Test Case Editor Form */}
+          {canAuthor && (
+            <form className="tm-editor" onSubmit={submitCase}>
+              <h3 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-main)' }}>Create Test Case Draft</h3>
+              <div className="grid grid-cols-3">
+                <label>Project
+                  <select value={caseForm.project_id} onChange={(event) => { setCaseForm({ ...caseForm, project_id: Number(event.target.value) }); setDirty(true); }}>
+                    {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
+                  </select>
+                </label>
+                <label>Module
+                  <select value={caseForm.module_id} onChange={(event) => { setCaseForm({ ...caseForm, module_id: Number(event.target.value) }); setDirty(true); }}>
+                    {modules.filter((item) => item.project_id === caseForm.project_id).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+                  </select>
+                </label>
+                <label>Suite
+                  <select value={caseForm.suite_id} onChange={(event) => { setCaseForm({ ...caseForm, suite_id: Number(event.target.value) }); setDirty(true); }}>
+                    {suites.filter((item) => item.project_id === caseForm.project_id && item.module_id === caseForm.module_id).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+                  </select>
+                </label>
+              </div>
+
+              <div className="grid grid-cols-2">
+                <label>Case key
+                  <input required value={caseForm.case_key} onChange={(event) => { setCaseForm({ ...caseForm, case_key: event.target.value }); setDirty(true); }} placeholder="e.g. TC-EMP-01" />
+                </label>
+                <label>Title
+                  <input required value={caseForm.title} onChange={(event) => { setCaseForm({ ...caseForm, title: event.target.value }); setDirty(true); }} placeholder="e.g. Verify employee creation form" />
+                </label>
+              </div>
+
+              <label>Objective
+                <textarea value={caseForm.objective} onChange={(event) => { setCaseForm({ ...caseForm, objective: event.target.value }); setDirty(true); }} placeholder="Describe objective..." />
+              </label>
+
+              <div className="grid grid-cols-2">
+                <label>Priority
+                  <select value={caseForm.priority} onChange={(event) => setCaseForm({ ...caseForm, priority: event.target.value })}>
+                    <option>LOW</option><option>MEDIUM</option><option>HIGH</option><option>CRITICAL</option>
+                  </select>
+                </label>
+                <label>Tags
+                  <input value={caseForm.tags} onChange={(event) => setCaseForm({ ...caseForm, tags: event.target.value })} placeholder="Comma separated tags" />
+                </label>
+              </div>
+
+              <div className="tm-steps">
+                <h4 style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-main)' }}>Ordered Test Steps</h4>
+                {caseForm.steps.map((step, index) => (
+                  <div className="tm-step" key={step.step_number}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <strong style={{ fontSize: '0.8rem', color: 'var(--color-primary)' }}>Step {step.step_number}</strong>
+                      <div className="table-actions">
+                        <button type="button" className="button button-secondary" onClick={() => moveStep(index, -1)}><ArrowUp size={12} /></button>
+                        <button type="button" className="button button-secondary" onClick={() => moveStep(index, 1)}><ArrowDown size={12} /></button>
+                        <button type="button" className="button button-secondary" onClick={() => removeStep(index)}><Trash2 size={12} /></button>
+                      </div>
+                    </div>
+                    <label>Action<input aria-label={`Action ${step.step_number}`} value={step.action} onChange={(event) => { const next = [...caseForm.steps]; next[index] = { ...step, action: event.target.value }; setCaseForm({ ...caseForm, steps: next }); setDirty(true); }} /></label>
+                    <label>Expected result<input aria-label={`Expected result ${step.step_number}`} value={step.expected_result} onChange={(event) => { const next = [...caseForm.steps]; next[index] = { ...step, expected_result: event.target.value }; setCaseForm({ ...caseForm, steps: next }); setDirty(true); }} /></label>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.75rem' }}>
+                <button type="button" className="button button-secondary" onClick={addStep}><Plus size={14} /> Add Step</button>
+                <button className="button button-primary" disabled={submitting}>Create Draft</button>
+              </div>
+            </form>
+          )}
+        </div>
+      )}
+
+      {/* TAB 3: AWAITING REVIEW */}
+      {!loading && tab === 'review' && (
+        <div className="card">
+          <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-main)', marginBottom: '1rem' }}>Test Cases Awaiting Approval</h3>
+          {reviewCases.length === 0 ? (
+            <div className="state-panel">No test cases awaiting review.</div>
+          ) : (
+            reviewCases.map((item) => (
+              <div className="tm-case-row" key={item.id}>
+                <strong style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-primary)' }}>{item.case_key}</strong>
+                <span>{item.title}</span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Creator #{item.created_by}</span>
+                <span className="badge badge-in_review">{item.created_by === operator.id ? 'Self Approval Blocked' : 'Ready for Review'}</span>
+                <span className="table-actions">
+                  <button className="button button-primary" disabled={!canReview || item.created_by === operator.id} onClick={() => void lifecycle('approve', item)}>Approve</button>
+                  <button className="button button-secondary" disabled={!canReview || item.created_by === operator.id} onClick={() => void lifecycle('reject', item)}>Reject</button>
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* TAB 4: MANUAL RUNS */}
+      {!loading && tab === 'runs' && (
+        <div className="grid grid-cols-2">
+          <div className="card">
+            <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-main)', marginBottom: '1rem' }}>Manual Runs</h3>
+            {runs.length === 0 ? (
+              <div className="state-panel">No manual runs created yet.</div>
+            ) : (
+              runs.map((run) => (
+                <div className="tm-row" key={run.id}>
+                  <strong style={{ fontFamily: 'var(--font-mono)' }}>{run.run_key}</strong>
+                  <span>{run.name}</span>
+                  <span className={`badge badge-${run.status.toLowerCase()}`}>{run.status}</span>
+                  <button className="button button-secondary" onClick={() => void openRun(run)}>Open</button>
+                  {run.status === 'PLANNED' && <button className="button button-primary" onClick={() => void startManualRun(run.id).then(load)}>Start</button>}
+                  {run.status === 'IN_PROGRESS' && <button className="button button-primary" onClick={() => void completeManualRun(run.id).then(load)}>Complete</button>}
+                </div>
+              ))
+            )}
+
+            {canAuthor && (
+              <form className="admin-form" onSubmit={submitRun}>
+                <h4 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-main)' }}>Create Manual Run</h4>
+                <label>Project
+                  <select value={runForm.project_id} onChange={(event) => setRunForm({ ...runForm, project_id: Number(event.target.value) })}>
+                    {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
+                  </select>
+                </label>
+                <label>Suite
+                  <select value={runForm.suite_id} onChange={(event) => setRunForm({ ...runForm, suite_id: Number(event.target.value) })}>
+                    {suites.filter((suite) => suite.project_id === runForm.project_id).map((suite) => <option key={suite.id} value={suite.id}>{suite.name}</option>)}
+                  </select>
+                </label>
+                <label>Run name
+                  <input required value={runForm.name} onChange={(event) => setRunForm({ ...runForm, name: event.target.value })} placeholder="e.g. Sprint 24 Regression" />
+                </label>
+                <button className="button button-primary" disabled={submitting}>Create Manual Run</button>
+              </form>
+            )}
+          </div>
+
+          <div className="card">
+            <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-main)', marginBottom: '1rem' }}>Manual Execution Panel</h3>
+            {!selectedRun ? (
+              <div className="state-panel">Open a manual run to record results.</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                <p><strong>{selectedRun.run_key}</strong> <span className="badge badge-info">{selectedRun.status}</span></p>
+                <select aria-label="Run case" className="input" value={selectedRunCase?.id ?? ''} onChange={async (event) => { const next = runCases.find((item) => item.id === Number(event.target.value)) ?? null; setSelectedRunCase(next); if (next) setEvidence(await fetchManualEvidence(selectedRun.id, next.id)); }}>
+                  {runCases.map((item) => <option key={item.id} value={item.id}>Case #{item.test_case_id} v{item.test_case_version} - {item.status}</option>)}
+                </select>
+                <button className="button button-primary" onClick={() => void saveResult()}>Save Progress</button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Version History Modal */}
+      {selectedCase && (
+        <div className="modal-backdrop">
+          <div className="modal" role="dialog" aria-modal="true">
+            <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-main)', marginBottom: '1rem' }}>Case Version History</h3>
+            {versions.map((version) => (
+              <div className="tm-row" key={version.id}>
+                <strong>v{version.version_number}</strong>
+                <span>{version.source_state}</span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{version.change_summary}</span>
+              </div>
+            ))}
+            <button className="button button-secondary" style={{ marginTop: '1rem' }} onClick={() => setSelectedCase(null)}>Close</button>
+          </div>
+        </div>
+      )}
+    </section>
+  );
 }
+

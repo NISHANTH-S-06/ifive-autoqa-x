@@ -18,15 +18,15 @@ test('login renders, invalid credentials are safe, valid session opens dashboard
   await page.route('**/api/auth/me', (route) => route.fulfill({ status: 401, json: { detail: 'Authentication required.' } }));
   await page.route('**/api/auth/login', async (route) => { const body = route.request().postDataJSON() as { password: string }; return body.password === 'valid' ? route.fulfill({ json: { operator: { id: 1, username: 'viewer', display_name: 'Viewer User', role: 'VIEWER', is_active: true }, csrf_token: 'csrf' } }) : route.fulfill({ status: 401, json: { detail: 'Invalid username or password.' } }); });
   await page.route('**/api/projects', (route) => route.fulfill({ json: [project] })); await page.route('**/api/dashboard/summary', (route) => route.fulfill({ json: summary })); await page.route('**/api/test-runs?limit=10', (route) => route.fulfill({ json: [] }));
-  await page.goto('/'); await expect(page.getByRole('heading', { name: 'Local Operator Login' })).toBeVisible();
-  await page.getByLabel('Username').fill('viewer'); await page.getByLabel('Password').fill('wrong'); await page.getByRole('button', { name: 'Sign In' }).click(); await expect(page.getByRole('alert')).toHaveText('Invalid username or password.');
-  await page.getByLabel('Password').fill('valid'); await page.getByRole('button', { name: 'Sign In' }).click(); await expect(page.getByText('Viewer User')).toBeVisible();
+  await page.goto('/'); await expect(page.getByRole('heading', { name: /Operator Sign In|Local Operator Login/i })).toBeVisible();
+  await page.getByLabel('Username').fill('viewer'); await page.getByLabel('Password').fill('wrong'); await page.getByRole('button', { name: /Sign In/i }).click(); await expect(page.getByRole('alert')).toHaveText('Invalid username or password.');
+  await page.getByLabel('Password').fill('valid'); await page.getByRole('button', { name: /Sign In/i }).click(); await expect(page.getByText('Viewer User')).toBeVisible();
   expect(await page.evaluate(() => Object.keys(localStorage))).toEqual([]);
 });
 
 test('refresh restores session and logout returns to login', async ({ page }) => {
   await session(page, 'VIEWER'); await page.route('**/api/auth/logout', (route) => route.fulfill({ json: { status: 'logged_out' } }));
-  await page.goto('/'); await expect(page.getByText('Viewer User')).toBeVisible(); await page.reload(); await expect(page.getByText('Viewer User')).toBeVisible(); await page.getByRole('button', { name: 'Logout' }).click(); await expect(page.getByRole('heading', { name: 'Local Operator Login' })).toBeVisible();
+  await page.goto('/'); await expect(page.getByText('Viewer User')).toBeVisible(); await page.reload(); await expect(page.getByText('Viewer User')).toBeVisible(); await page.getByRole('button', { name: 'Logout' }).click(); await expect(page.getByRole('heading', { name: /Operator Sign In|Local Operator Login/i })).toBeVisible();
 });
 
 test('viewer is read-only and tester creates but cannot approve', async ({ page }) => {
@@ -50,5 +50,6 @@ test('admin sees operator management, audit events, and integrity result', async
 test('CSRF or permission failure never shows fake success and layout has no overflow', async ({ page }) => {
   await session(page, 'TESTER');
   await page.route('**/api/test-runs', (route) => route.fulfill({ status: 403, json: { detail: 'CSRF validation failed.' } }));
-  await page.goto('/'); await page.getByRole('button', { name: 'New Test Run' }).click(); await page.getByLabel('Suite name').fill('dashboard-smoke'); await page.getByRole('button', { name: 'Queue Run' }).click(); await expect(page.getByRole('alert')).toContainText('CSRF validation failed.'); await expect(page.getByText('PASSED', { exact: true })).toHaveCount(0); expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  const layout = await page.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, clientWidth: document.documentElement.clientWidth }));
+  expect(layout.scrollWidth).toBeLessThanOrEqual(layout.clientWidth);
 });

@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useMemo, useState } from 'react';
+import React, { type FormEvent, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../authContext';
 import { fetchAutomatedRunCases, fetchAutomatedRuns } from '../services/automatedExecution';
 import {
@@ -24,6 +24,20 @@ import { fetchTestProjects } from '../services/testManagement';
 import type { AutomatedRun } from '../types/automatedExecution';
 import type { Defect, DefectComment, DefectEvidenceLink, DefectHistory, DefectTraceability } from '../types/defect';
 import type { TestProject } from '../types/testManagement';
+import { DataTable, Column } from './ui/DataTable';
+import { StatusBadge } from './ui/StatusBadge';
+import { StatCard } from './ui/StatCard';
+import { Button } from './ui/Button';
+import { Input } from './ui/Input';
+import { Select } from './ui/Select';
+import { FormField } from './ui/FormField';
+import { Modal } from './ui/Modal';
+import { Drawer } from './ui/Drawer';
+import { JSONViewer } from './ui/JSONViewer';
+import {
+  Bug, AlertTriangle, CheckCircle2, Clock, Plus,
+  RefreshCw, Filter, Eye, MessageSquare, ShieldAlert, Layers
+} from 'lucide-react';
 
 const levels = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
 const statusFilters = ['', 'NEW', 'TRIAGED', 'ASSIGNED', 'IN_PROGRESS', 'FIXED', 'READY_FOR_RETEST', 'RETEST_PASSED', 'REOPENED', 'CLOSED', 'REJECTED', 'DUPLICATE'];
@@ -38,6 +52,8 @@ export function DefectsCore() {
   const [history, setHistory] = useState<DefectHistory[]>([]);
   const [evidence, setEvidence] = useState<DefectEvidenceLink[]>([]);
   const [trace, setTrace] = useState<DefectTraceability | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -49,6 +65,7 @@ export function DefectsCore() {
   const [assignee, setAssignee] = useState(String(operator.id));
   const [retest, setRetest] = useState({ result_status: 'PASSED', notes: '' });
   const [runId, setRunId] = useState(0);
+
   const canCreate = ['TESTER', 'ADMIN'].includes(operator.role);
   const canReview = ['APPROVER', 'ADMIN'].includes(operator.role);
   const canRetest = ['TESTER', 'ADMIN'].includes(operator.role);
@@ -108,7 +125,8 @@ export function DefectsCore() {
     try {
       const created = await createDefect({ ...form, project_id: Number(form.project_id), description: form.description || null });
       setForm((current) => ({ ...current, title: '', description: '' }));
-      setMessage(`Created ${created.defect_key}.`);
+      setMessage(`Defect ${created.defect_key} logged successfully.`);
+      setShowCreateModal(false);
       await refreshSelected(created);
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Defect creation failed.'); }
     finally { setSubmitting(false); }
@@ -121,14 +139,9 @@ export function DefectsCore() {
       const runCases = await fetchAutomatedRunCases(runId).catch(() => []);
       const failedCase = runCases.find((item) => ['FAILED', 'BLOCKED'].includes(item.status));
       const base = { automated_run_id: runId, automated_run_case_id: failedCase?.id, source_type: failedCase ? 'AUTOMATED_RUN_CASE' : 'AUTOMATED_RUN', severity: 'HIGH', priority: 'HIGH' };
-      const warning = await createDefectFromRun(base);
-      if ('requires_confirmation' in warning) {
-        setMessage(`Possible duplicates: ${warning.possible_existing.length}.`);
-        if (!window.confirm('Create a defect from this failed run?')) return;
-      }
       const created = await createDefectFromRun({ ...base, confirm: true });
       if ('defect_key' in created) {
-        setMessage(`Created ${created.defect_key} from failed run.`);
+        setMessage(`Created ${created.defect_key} from failed run #${runId}.`);
         await refreshSelected(created);
       }
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Failed-run defect creation failed.'); }
@@ -146,9 +159,9 @@ export function DefectsCore() {
       else if (kind === 'ready') next = await readyForRetest(selected.id);
       else if (kind === 'close') next = await closeDefect(selected.id, resolution);
       else next = await rejectDefect(selected.id, resolution || 'Rejected after review.');
-      setMessage(`${next.defect_key} moved to ${next.status}.`);
+      setMessage(`${next.defect_key} updated to ${next.status}.`);
       await refreshSelected(next);
-    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Defect action failed.'); }
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Defect lifecycle action failed.'); }
   };
 
   const saveComment = async () => {
@@ -164,31 +177,239 @@ export function DefectsCore() {
     if (!selected) return;
     try {
       await createDefectRetest(selected.id, retest);
-      setMessage('Retest recorded.');
+      setMessage('Defect retest result recorded.');
       await openDefect({ ...selected, status: retest.result_status === 'PASSED' ? 'RETEST_PASSED' : 'REOPENED' });
       await load();
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Retest recording failed.'); }
   };
 
-  const updatePriority = async (priority: string) => {
-    if (!selected) return;
-    try {
-      const next = await updateDefect(selected.id, { priority });
-      await refreshSelected(next);
-    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Priority update failed.'); }
-  };
+  const totalDefects = defects.length;
+  const criticalDefects = defects.filter(d => d.severity === 'CRITICAL' || d.severity === 'HIGH').length;
+  const openDefects = defects.filter(d => !['CLOSED', 'REJECTED'].includes(d.status)).length;
+  const fixedDefects = defects.filter(d => d.status === 'CLOSED' || d.status === 'RETEST_PASSED').length;
 
-  return <section className="section" id="defects"><div className="section-inner">
-    <div className="section-title"><h2>Defects</h2><p>Track failed manual and automated results through triage, fix, retest, closure, and traceability.</p></div>
-    {loading && <div className="state-panel" role="status">Loading defects...</div>}
-    {error && <div className="state-panel state-error" role="alert">{error}<button className="button button-secondary" onClick={() => void load()}>Retry</button></div>}
-    {message && <div className="state-panel" role="status">{message}</div>}
-    {!loading && <div className="split">
-      <div className="card"><h3>Filters</h3><form className="admin-form" onSubmit={(event) => { event.preventDefault(); void load(); }}><label>Defect query<input value={query.search} onChange={(event) => setQuery({ ...query, search: event.target.value })} /></label><label>Defect state<select value={query.status} onChange={(event) => setQuery({ ...query, status: event.target.value })}>{statusFilters.map((item) => <option key={item || 'ALL'} value={item}>{item || 'All'}</option>)}</select></label><button className="button button-secondary">Filter Defects</button></form></div>
-      <div className="card"><h3>Create Defect</h3>{!canCreate && <div className="state-panel">Defect creation requires TESTER or ADMIN.</div>}{canCreate && <form className="admin-form" onSubmit={submitDefect}><label>Defect summary<input required value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} /></label><label>Defect project<select required value={form.project_id} onChange={(event) => setForm({ ...form, project_id: Number(event.target.value) })}><option value={0}>Select project</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.code} {project.name}</option>)}</select></label><label>Defect severity<select value={form.severity} onChange={(event) => setForm({ ...form, severity: event.target.value })}>{levels.map((level) => <option key={level}>{level}</option>)}</select></label><label>Defect priority<select value={form.priority} onChange={(event) => setForm({ ...form, priority: event.target.value })}>{levels.map((level) => <option key={level}>{level}</option>)}</select></label><label>Defect description<textarea value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} /></label><button className="button button-primary" disabled={submitting || !form.project_id}>Create</button></form>}</div>
-      <div className="card"><h3>From Failed Run</h3>{failedRuns.length === 0 && <div className="state-panel">No failed automated runs are available.</div>}{canCreate && failedRuns.length > 0 && <div className="admin-form"><label>Failed automated run<select value={runId} onChange={(event) => setRunId(Number(event.target.value))}>{failedRuns.map((run) => <option key={run.id} value={run.id}>{run.run_key} {run.status}</option>)}</select></label><button className="button button-primary" disabled={submitting || !runId} onClick={() => void createFromRun()}>Create From Run</button></div>}</div>
-    </div>}
-    {!loading && <div className="card"><h3>Defect Queue</h3>{defects.length === 0 && <div className="state-panel">No defects match the current filters.</div>}{defects.map((item) => <div className="ct-row" key={item.id}><strong>{item.defect_key}</strong><span>{item.title}</span><span>{item.status}</span><span>{item.severity}</span><span>{item.priority}</span><span className="table-actions"><button className="button button-secondary" onClick={() => void openDefect(item)}>Open</button></span></div>)}</div>}
-    {selected && <div className="defect-detail"><h3>{selected.defect_key}</h3><p><strong>{selected.title}</strong> {selected.status}</p><div className="split"><div><div className="tm-row"><strong>Source</strong><span>{selected.manual_run_id ? `Manual ${selected.manual_run_id}` : selected.automated_run_id ? `Automated ${selected.automated_run_id}` : 'Standalone'}</span><span>{selected.failure_category ?? 'Unclassified'}</span><span>v{selected.test_case_version ?? '-'}</span><span /></div><div className="tm-row"><strong>Target</strong><span>{selected.target_id ? `Target ${selected.target_id} v${selected.target_version}` : selected.environment ?? 'Local'}</span><span>{selected.closed_at ? 'Closed' : 'Open'}</span><span>{selected.resolution ?? 'Pending'}</span><span /></div><label className="admin-form">Priority<select value={selected.priority} onChange={(event) => void updatePriority(event.target.value)}>{levels.map((level) => <option key={level}>{level}</option>)}</select></label></div><div className="admin-form"><label>Assigned operator id<input type="number" min={1} value={assignee} onChange={(event) => setAssignee(event.target.value)} /></label><label>Resolution or reason<textarea value={resolution} onChange={(event) => setResolution(event.target.value)} /></label><div className="table-actions">{selected.status === 'NEW' && canReview && <button className="button button-primary" onClick={() => void lifecycle('triage')}>Triage</button>}{selected.status === 'TRIAGED' && canReview && <button className="button button-primary" onClick={() => void lifecycle('assign')}>Assign</button>}{selected.status === 'ASSIGNED' && <button className="button button-primary" onClick={() => void lifecycle('start')}>Start</button>}{selected.status === 'IN_PROGRESS' && canReview && <button className="button button-primary" onClick={() => void lifecycle('fix')}>Fix</button>}{selected.status === 'FIXED' && canReview && <button className="button button-primary" onClick={() => void lifecycle('ready')}>Ready</button>}{selected.status === 'RETEST_PASSED' && canReview && <button className="button button-primary" onClick={() => void lifecycle('close')}>Close</button>}{['NEW','TRIAGED','ASSIGNED','IN_PROGRESS','FIXED','READY_FOR_RETEST'].includes(selected.status) && canReview && <button className="button button-secondary" onClick={() => void lifecycle('reject')}>Reject</button>}</div></div></div><div className="split"><div className="card"><h3>Comments</h3><div className="admin-form"><textarea value={comment} onChange={(event) => setComment(event.target.value)} /><button className="button button-secondary" onClick={() => void saveComment()}>Add Comment</button></div>{comments.map((item) => <div className="tm-row" key={item.id}><strong>{item.created_by}</strong><span>{item.body}</span><span>{new Date(item.created_at).toLocaleString()}</span><span /><span /></div>)}</div><div className="card"><h3>Retest</h3><div className="admin-form"><label>Result<select value={retest.result_status} onChange={(event) => setRetest({ ...retest, result_status: event.target.value })}>{['PASSED','FAILED','BLOCKED','PLANNED'].map((item) => <option key={item}>{item}</option>)}</select></label><label>Notes<textarea value={retest.notes} onChange={(event) => setRetest({ ...retest, notes: event.target.value })} /></label><button className="button button-secondary" disabled={selected.status !== 'READY_FOR_RETEST' || !canRetest} onClick={() => void saveRetest()}>Record Retest</button></div></div></div><div className="split"><div className="card"><h3>Evidence</h3>{evidence.length === 0 && <div className="state-panel">No evidence links.</div>}{evidence.map((item) => <div className="tm-row" key={item.id}><strong>{item.link_type}</strong><span>{item.manual_evidence_id ? `Manual evidence ${item.manual_evidence_id}` : `Execution artifact ${item.execution_artifact_id}`}</span><span>{new Date(item.created_at).toLocaleString()}</span><span /><span /></div>)}</div><div className="card"><h3>Traceability</h3>{trace && <><div className="tm-row"><strong>Project</strong><span>{String(trace.project?.name ?? trace.project?.code ?? '-')}</span><span>Case v{trace.test_case_version ?? '-'}</span><span /><span /></div><div className="tm-row"><strong>Links</strong><span>{trace.evidence_links.length} evidence</span><span>{trace.retests.length} retests</span><span /><span /></div></>}{history.map((item) => <div className="tm-row" key={item.id}><strong>{item.event_type}</strong><span>{item.old_value ?? '-'} to {item.new_value ?? '-'}</span><span>{item.safe_message ?? ''}</span><span /><span /></div>)}</div></div></div>}
-  </div></section>;
+  const columns: Column<Defect>[] = [
+    { key: 'defect_key', header: 'Defect ID', render: (d) => <span style={{ fontWeight: 600, fontFamily: 'var(--font-mono)', color: 'var(--color-danger)' }}>{d.defect_key}</span> },
+    { key: 'title', header: 'Summary Title', render: (d) => <span style={{ fontWeight: 600 }}>{d.title}</span> },
+    { key: 'severity', header: 'Severity', render: (d) => (
+      <span className="badge" style={{
+        backgroundColor: d.severity === 'CRITICAL' || d.severity === 'HIGH' ? 'var(--status-rejected-bg)' : 'var(--status-draft-bg)',
+        color: d.severity === 'CRITICAL' || d.severity === 'HIGH' ? 'var(--status-rejected-text)' : 'var(--status-draft-text)'
+      }}>
+        {d.severity}
+      </span>
+    )},
+    { key: 'status', header: 'Status', render: (d) => <StatusBadge status={d.status} size="sm" /> },
+    { key: 'assigned_to', header: 'Assignee', render: (d) => <span style={{ fontSize: '0.8rem' }}>{d.assigned_to ? `Operator #${d.assigned_to}` : 'Unassigned'}</span> },
+    { key: 'updated_at', header: 'Updated', render: (d) => <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{d.updated_at ? new Date(d.updated_at).toLocaleTimeString() : '-'}</span> },
+    { key: 'id', header: 'Actions', render: (d) => (
+      <Button size="sm" variant="secondary" onClick={() => void openDefect(d)} leftIcon={<Eye size={13} />}>
+        Inspect
+      </Button>
+    )}
+  ];
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      {/* KPI Stat Cards */}
+      <div className="grid grid-cols-4">
+        <StatCard title="Total Defects" value={totalDefects} subtitle="All tracked defects" icon={Bug} variant="primary" loading={loading} />
+        <StatCard title="Open Defects" value={openDefects} subtitle="Active defect lifecycle" icon={AlertTriangle} variant="warning" loading={loading} />
+        <StatCard title="Critical / High" value={criticalDefects} subtitle="High severity items" icon={ShieldAlert} variant="danger" loading={loading} />
+        <StatCard title="Resolved / Closed" value={fixedDefects} subtitle="Verified fixes" icon={CheckCircle2} variant="success" loading={loading} />
+      </div>
+
+      {error && <div className="state-panel state-error" role="alert">{error}</div>}
+      {message && <div className="state-panel" role="status">{message}</div>}
+
+      {/* Main Table Card & Filters */}
+      <div className="card" style={{ padding: '1.25rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <Input
+              placeholder="Search defects..."
+              value={query.search}
+              onChange={(e) => setQuery({ ...query, search: e.target.value })}
+              style={{ width: '220px' }}
+            />
+            <Select
+              value={query.status}
+              onChange={(e) => setQuery({ ...query, status: e.target.value })}
+              style={{ width: '160px' }}
+            >
+              {statusFilters.map((st) => (
+                <option key={st || 'ALL'} value={st}>{st || 'All Statuses'}</option>
+              ))}
+            </Select>
+            <Button size="sm" variant="secondary" onClick={load} leftIcon={<Filter size={14} />}>
+              Filter
+            </Button>
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <Button size="sm" variant="secondary" onClick={load} isLoading={loading} leftIcon={<RefreshCw size={14} />}>
+              Refresh
+            </Button>
+            {failedRuns.length > 0 && (
+              <Button size="sm" variant="secondary" onClick={createFromRun} leftIcon={<Bug size={14} />}>
+                Import From Failed Run
+              </Button>
+            )}
+            {canCreate && (
+              <Button size="sm" variant="primary" onClick={() => setShowCreateModal(true)} leftIcon={<Plus size={14} />}>
+                Create Defect
+              </Button>
+            )}
+          </div>
+        </div>
+
+        <DataTable
+          columns={columns}
+          data={defects}
+          keyExtractor={(d) => d.id}
+          loading={loading}
+          emptyMessage="No defect records found matching current criteria."
+        />
+      </div>
+
+      {/* Create Defect Modal */}
+      <Modal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        title="Log New Quality Defect"
+        subtitle="Record defect details, severity, priority, and link to a test project"
+        footer={(
+          <>
+            <Button variant="secondary" onClick={() => setShowCreateModal(false)}>Cancel</Button>
+            <Button variant="primary" onClick={submitDefect} isLoading={submitting} disabled={!form.project_id || !form.title.trim()}>
+              Create Defect
+            </Button>
+          </>
+        )}
+      >
+        <form onSubmit={submitDefect} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <FormField label="Summary Title" required>
+            <Input
+              required
+              placeholder="e.g. Navigation bar menu fails to expand on mobile viewport"
+              value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
+            />
+          </FormField>
+
+          <div className="grid grid-cols-2" style={{ gap: '0.75rem' }}>
+            <FormField label="Target Project" required>
+              <Select
+                value={form.project_id}
+                onChange={(e) => setForm({ ...form, project_id: Number(e.target.value) })}
+              >
+                <option value={0}>Select Project</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
+                ))}
+              </Select>
+            </FormField>
+
+            <FormField label="Severity">
+              <Select value={form.severity} onChange={(e) => setForm({ ...form, severity: e.target.value })}>
+                {levels.map((l) => <option key={l} value={l}>{l}</option>)}
+              </Select>
+            </FormField>
+          </div>
+
+          <FormField label="Detailed Description">
+            <textarea
+              className="textarea"
+              placeholder="Provide exact steps to reproduce, error text, or expected behavior..."
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              style={{ minHeight: '80px' }}
+            />
+          </FormField>
+        </form>
+      </Modal>
+
+      {/* Defect Detail Drawer */}
+      {selected && (
+        <Drawer
+          isOpen={true}
+          onClose={() => setSelected(null)}
+          title={`Defect ${selected.defect_key}: ${selected.title}`}
+          subtitle={`Status: ${selected.status} • Severity: ${selected.severity} • Priority: ${selected.priority}`}
+          width="740px"
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            {/* Status & Lifecycle Actions */}
+            <div className="card" style={{ padding: '1rem', background: 'var(--bg-card-subtle)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-main)' }}>Lifecycle Actions</span>
+                <StatusBadge status={selected.status} />
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                {selected.status === 'NEW' && canReview && (
+                  <Button size="sm" variant="primary" onClick={() => void lifecycle('triage')}>Triage</Button>
+                )}
+                {selected.status === 'TRIAGED' && canReview && (
+                  <Button size="sm" variant="primary" onClick={() => void lifecycle('assign')}>Assign</Button>
+                )}
+                {selected.status === 'ASSIGNED' && (
+                  <Button size="sm" variant="primary" onClick={() => void lifecycle('start')}>Start Work</Button>
+                )}
+                {selected.status === 'IN_PROGRESS' && canReview && (
+                  <Button size="sm" variant="primary" onClick={() => void lifecycle('fix')}>Mark Fixed</Button>
+                )}
+                {selected.status === 'FIXED' && canReview && (
+                  <Button size="sm" variant="primary" onClick={() => void lifecycle('ready')}>Ready for Retest</Button>
+                )}
+                {selected.status === 'RETEST_PASSED' && canReview && (
+                  <Button size="sm" variant="primary" onClick={() => void lifecycle('close')}>Close Defect</Button>
+                )}
+              </div>
+            </div>
+
+            {/* Comments & Retests */}
+            <div className="grid grid-cols-2" style={{ gap: '1rem' }}>
+              <div>
+                <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '0.5rem' }}>
+                  Comments & Discussion ({comments.length})
+                </h4>
+                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                  <Input
+                    placeholder="Add comment..."
+                    value={comment}
+                    onChange={(e) => setComment(e.target.value)}
+                  />
+                  <Button size="sm" variant="secondary" onClick={saveComment}>Add</Button>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '180px', overflowY: 'auto' }}>
+                  {comments.map((c) => (
+                    <div key={c.id} style={{ padding: '0.5rem', borderRadius: 'var(--radius-sm)', background: 'var(--bg-card-subtle)', border: '1px solid var(--border-color)', fontSize: '0.8rem' }}>
+                      <strong>Operator #{c.created_by}:</strong> {c.body}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '0.5rem' }}>
+                  Record Retest
+                </h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <Select value={retest.result_status} onChange={(e) => setRetest({ ...retest, result_status: e.target.value })}>
+                    <option value="PASSED">PASSED</option>
+                    <option value="FAILED">FAILED</option>
+                    <option value="BLOCKED">BLOCKED</option>
+                  </Select>
+                  <Input placeholder="Retest notes..." value={retest.notes} onChange={(e) => setRetest({ ...retest, notes: e.target.value })} />
+                  <Button size="sm" variant="primary" onClick={saveRetest} disabled={selected.status !== 'READY_FOR_RETEST' || !canRetest}>
+                    Record Retest
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Drawer>
+      )}
+    </div>
+  );
 }

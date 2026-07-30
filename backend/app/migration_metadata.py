@@ -10,6 +10,7 @@ from app.models import (
   connection_target,
   defect,
   evidence,
+  external_task_import,
   operator,
   operator_session,
   password_history,
@@ -21,15 +22,22 @@ from app.models import (
   test_result,
   test_run,
   test_suite,
+  enterprise_hierarchy,
+  discovery,
+  phase9_models,
+  phase10_models,
+  phase11_models,
+  phase12_models,
 )
 
 
-# These imports register all 42 current ORM tables on Base.metadata. The names
+# These imports register all ORM tables on Base.metadata. The names
 # are retained above deliberately so static analysis does not remove them.
 _REGISTERED_MODEL_MODULES = (
   agent_suggestion, audit_event, automated_execution, connection_target,
-  defect, evidence, operator, operator_session, password_history, project,
+  defect, evidence, external_task_import, operator, operator_session, password_history, project,
   project_membership, reporting, test_case, test_management, test_result, test_run, test_suite,
+  enterprise_hierarchy, discovery, phase9_models, phase10_models, phase11_models, phase12_models,
 )
 
 _DERIVED_PROJECT_COLUMNS = {

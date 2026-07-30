@@ -1,0 +1,116 @@
+{"version":8,"type":"context-options","origin":"library","browserName":"","playwrightVersion":"1.61.1","options":{},"platform":"win32","wallTime":1784789106750,"monotonicTime":1653.076,"sdkLanguage":"javascript","contextId":"request-context@9d6d9fdd7e34c1e1fe4a4789c9f34309","title":"phase3-task-connector.spec.ts:23 › Phase 3.1 — Full Acceptance Hardening Suite › 01 — PASS full flow: import, plan, approve, execute, screenshot SHA-256, and QA_PASSED callback"}
+{"type":"before","callId":"call@5","startTime":1658.283,"class":"APIRequestContext","method":"fetch","params":{"url":"http://localhost:8000/api/task-imports/reset-for-testing","method":"POST","timeout":0},"stepId":"pw:api@27"}
+{"type":"log","callId":"call@5","time":1669.508,"message":"→ POST http://localhost:8000/api/task-imports/reset-for-testing"}
+{"type":"log","callId":"call@5","time":1669.562,"message":"  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.7827.55 Safari/537.36"}
+{"type":"log","callId":"call@5","time":1669.576,"message":"  accept: */*"}
+{"type":"log","callId":"call@5","time":1669.586,"message":"  accept-encoding: gzip,deflate,br"}
+{"type":"log","callId":"call@5","time":2044.265,"message":"← 200 OK"}
+{"type":"log","callId":"call@5","time":2044.29,"message":"  date: Thu, 23 Jul 2026 06:45:06 GMT"}
+{"type":"log","callId":"call@5","time":2044.299,"message":"  server: uvicorn"}
+{"type":"log","callId":"call@5","time":2044.379,"message":"  content-length: 18"}
+{"type":"log","callId":"call@5","time":2044.392,"message":"  content-type: application/json"}
+{"type":"log","callId":"call@5","time":2044.412,"message":"  x-correlation-id: e69e8bd1fc86456a8dbfd8292738a18e"}
+{"type":"after","callId":"call@5","endTime":2044.594,"result":{"response":{"url":"http://localhost:8000/api/task-imports/reset-for-testing","status":200,"statusText":"OK","headers":[{"name":"date","value":"Thu, 23 Jul 2026 06:45:06 GMT"},{"name":"server","value":"uvicorn"},{"name":"content-length","value":"18"},{"name":"content-type","value":"application/json"},{"name":"x-correlation-id","value":"e69e8bd1fc86456a8dbfd8292738a18e"}],"serverAddr":{"ipAddress":"127.0.0.1","port":8000},"fetchUid":"43d433523d9baf8c37125a598d3f878c"}}}
+{"type":"before","callId":"call@7","startTime":2047.064,"class":"APIRequestContext","method":"fetch","params":{"url":"http://localhost:8001/api/tasks/reset-testing-l2","method":"POST","timeout":0},"stepId":"pw:api@28"}
+{"type":"log","callId":"call@7","time":2048.066,"message":"→ POST http://localhost:8001/api/tasks/reset-testing-l2"}
+{"type":"log","callId":"call@7","time":2048.083,"message":"  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.7827.55 Safari/537.36"}
+{"type":"log","callId":"call@7","time":2048.09,"message":"  accept: */*"}
+{"type":"log","callId":"call@7","time":2048.099,"message":"  accept-encoding: gzip,deflate,br"}
+{"type":"log","callId":"call@7","time":2371.292,"message":"← 200 OK"}
+{"type":"log","callId":"call@7","time":2371.322,"message":"  date: Thu, 23 Jul 2026 06:45:06 GMT"}
+{"type":"log","callId":"call@7","time":2371.329,"message":"  server: uvicorn"}
+{"type":"log","callId":"call@7","time":2371.335,"message":"  content-length: 32"}
+{"type":"log","callId":"call@7","time":2371.34,"message":"  content-type: application/json"}
+{"type":"after","callId":"call@7","endTime":2371.998,"result":{"response":{"url":"http://localhost:8001/api/tasks/reset-testing-l2","status":200,"statusText":"OK","headers":[{"name":"date","value":"Thu, 23 Jul 2026 06:45:06 GMT"},{"name":"server","value":"uvicorn"},{"name":"content-length","value":"32"},{"name":"content-type","value":"application/json"}],"serverAddr":{"ipAddress":"127.0.0.1","port":8001},"fetchUid":"3a9686400686d727a080c214e4185ad5"}}}
+{"type":"before","callId":"call@9","startTime":2374.136,"class":"APIRequestContext","method":"fetch","params":{"url":"http://localhost:8002/api/demo-bugs/toggles/employee_save_failure?enabled=false","method":"POST","timeout":0},"stepId":"pw:api@29"}
+{"type":"log","callId":"call@9","time":2374.771,"message":"→ POST http://localhost:8002/api/demo-bugs/toggles/employee_save_failure?enabled=false"}
+{"type":"log","callId":"call@9","time":2374.785,"message":"  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.7827.55 Safari/537.36"}
+{"type":"log","callId":"call@9","time":2374.792,"message":"  accept: */*"}
+{"type":"log","callId":"call@9","time":2374.796,"message":"  accept-encoding: gzip,deflate,br"}
+{"type":"log","callId":"call@9","time":2694.37,"message":"← 403 Forbidden"}
+{"type":"log","callId":"call@9","time":2694.418,"message":"  date: Thu, 23 Jul 2026 06:45:06 GMT"}
+{"type":"log","callId":"call@9","time":2694.431,"message":"  server: uvicorn"}
+{"type":"log","callId":"call@9","time":2694.442,"message":"  content-length: 51"}
+{"type":"log","callId":"call@9","time":2694.451,"message":"  content-type: application/json"}
+{"type":"after","callId":"call@9","endTime":2695.542,"result":{"response":{"url":"http://localhost:8002/api/demo-bugs/toggles/employee_save_failure?enabled=false","status":403,"statusText":"Forbidden","headers":[{"name":"date","value":"Thu, 23 Jul 2026 06:45:06 GMT"},{"name":"server","value":"uvicorn"},{"name":"content-length","value":"51"},{"name":"content-type","value":"application/json"}],"serverAddr":{"ipAddress":"127.0.0.1","port":8002},"fetchUid":"6f0198b707d8978d3c9086e349a382d8"}}}
+{"type":"before","callId":"call@11","startTime":2701.46,"class":"APIRequestContext","method":"fetch","params":{"url":"http://localhost:8002/api/demo-bugs/toggles/employee_success_message_missing?enabled=false","method":"POST","timeout":0},"stepId":"pw:api@30"}
+{"type":"log","callId":"call@11","time":2702.19,"message":"→ POST http://localhost:8002/api/demo-bugs/toggles/employee_success_message_missing?enabled=false"}
+{"type":"log","callId":"call@11","time":2702.21,"message":"  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.7827.55 Safari/537.36"}
+{"type":"log","callId":"call@11","time":2702.218,"message":"  accept: */*"}
+{"type":"log","callId":"call@11","time":2702.225,"message":"  accept-encoding: gzip,deflate,br"}
+{"type":"log","callId":"call@11","time":2705.936,"message":"← 403 Forbidden"}
+{"type":"log","callId":"call@11","time":2705.957,"message":"  date: Thu, 23 Jul 2026 06:45:06 GMT"}
+{"type":"log","callId":"call@11","time":2705.965,"message":"  server: uvicorn"}
+{"type":"log","callId":"call@11","time":2705.971,"message":"  content-length: 51"}
+{"type":"log","callId":"call@11","time":2705.976,"message":"  content-type: application/json"}
+{"type":"after","callId":"call@11","endTime":2706.478,"result":{"response":{"url":"http://localhost:8002/api/demo-bugs/toggles/employee_success_message_missing?enabled=false","status":403,"statusText":"Forbidden","headers":[{"name":"date","value":"Thu, 23 Jul 2026 06:45:06 GMT"},{"name":"server","value":"uvicorn"},{"name":"content-length","value":"51"},{"name":"content-type","value":"application/json"}],"serverAddr":{"ipAddress":"127.0.0.1","port":8002},"fetchUid":"0f3bb4d63b632a0df443788682fe1392"}}}
+{"type":"before","callId":"call@13","startTime":2707.991,"class":"APIRequestContext","method":"fetch","params":{"url":"http://localhost:8002/api/demo-bugs/toggles/login_failure_mode?enabled=false","method":"POST","timeout":0},"stepId":"pw:api@31"}
+{"type":"log","callId":"call@13","time":2708.573,"message":"→ POST http://localhost:8002/api/demo-bugs/toggles/login_failure_mode?enabled=false"}
+{"type":"log","callId":"call@13","time":2708.589,"message":"  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.7827.55 Safari/537.36"}
+{"type":"log","callId":"call@13","time":2708.595,"message":"  accept: */*"}
+{"type":"log","callId":"call@13","time":2708.601,"message":"  accept-encoding: gzip,deflate,br"}
+{"type":"log","callId":"call@13","time":2712.072,"message":"← 403 Forbidden"}
+{"type":"log","callId":"call@13","time":2712.091,"message":"  date: Thu, 23 Jul 2026 06:45:06 GMT"}
+{"type":"log","callId":"call@13","time":2712.098,"message":"  server: uvicorn"}
+{"type":"log","callId":"call@13","time":2712.103,"message":"  content-length: 51"}
+{"type":"log","callId":"call@13","time":2712.109,"message":"  content-type: application/json"}
+{"type":"after","callId":"call@13","endTime":2712.619,"result":{"response":{"url":"http://localhost:8002/api/demo-bugs/toggles/login_failure_mode?enabled=false","status":403,"statusText":"Forbidden","headers":[{"name":"date","value":"Thu, 23 Jul 2026 06:45:06 GMT"},{"name":"server","value":"uvicorn"},{"name":"content-length","value":"51"},{"name":"content-type","value":"application/json"}],"serverAddr":{"ipAddress":"127.0.0.1","port":8002},"fetchUid":"7a25eb3ab367ff109036d633ee7383fa"}}}
+{"type":"before","callId":"call@15","startTime":2714.438,"class":"APIRequestContext","method":"fetch","params":{"url":"http://localhost:8000/api/task-imports/sync","method":"POST","timeout":0},"stepId":"pw:api@32"}
+{"type":"log","callId":"call@15","time":2714.764,"message":"→ POST http://localhost:8000/api/task-imports/sync"}
+{"type":"log","callId":"call@15","time":2714.775,"message":"  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.7827.55 Safari/537.36"}
+{"type":"log","callId":"call@15","time":2714.78,"message":"  accept: */*"}
+{"type":"log","callId":"call@15","time":2714.785,"message":"  accept-encoding: gzip,deflate,br"}
+{"type":"log","callId":"call@15","time":9166.245,"message":"← 200 OK"}
+{"type":"log","callId":"call@15","time":9166.284,"message":"  date: Thu, 23 Jul 2026 06:45:06 GMT"}
+{"type":"log","callId":"call@15","time":9166.294,"message":"  server: uvicorn"}
+{"type":"log","callId":"call@15","time":9166.302,"message":"  content-length: 17566"}
+{"type":"log","callId":"call@15","time":9166.309,"message":"  content-type: application/json"}
+{"type":"log","callId":"call@15","time":9166.317,"message":"  x-correlation-id: d478ed52364d4453b0b762292adfbcda"}
+{"type":"after","callId":"call@15","endTime":9167.324,"result":{"response":{"url":"http://localhost:8000/api/task-imports/sync","status":200,"statusText":"OK","headers":[{"name":"date","value":"Thu, 23 Jul 2026 06:45:06 GMT"},{"name":"server","value":"uvicorn"},{"name":"content-length","value":"17566"},{"name":"content-type","value":"application/json"},{"name":"x-correlation-id","value":"d478ed52364d4453b0b762292adfbcda"}],"serverAddr":{"ipAddress":"127.0.0.1","port":8000},"fetchUid":"d41eaf33cb17b0887354ef16977c2d65"}}}
+{"type":"before","callId":"call@18","startTime":9176.941,"class":"APIRequestContext","method":"fetch","params":{"url":"http://localhost:8000/api/task-imports/67/prepare-plan","method":"POST","timeout":0},"stepId":"pw:api@35"}
+{"type":"log","callId":"call@18","time":9177.517,"message":"→ POST http://localhost:8000/api/task-imports/67/prepare-plan"}
+{"type":"log","callId":"call@18","time":9177.533,"message":"  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.7827.55 Safari/537.36"}
+{"type":"log","callId":"call@18","time":9177.54,"message":"  accept: */*"}
+{"type":"log","callId":"call@18","time":9177.546,"message":"  accept-encoding: gzip,deflate,br"}
+{"type":"log","callId":"call@18","time":9184.025,"message":"← 200 OK"}
+{"type":"log","callId":"call@18","time":9184.044,"message":"  date: Thu, 23 Jul 2026 06:45:13 GMT"}
+{"type":"log","callId":"call@18","time":9184.049,"message":"  server: uvicorn"}
+{"type":"log","callId":"call@18","time":9184.054,"message":"  content-length: 1079"}
+{"type":"log","callId":"call@18","time":9184.058,"message":"  content-type: application/json"}
+{"type":"log","callId":"call@18","time":9184.062,"message":"  x-correlation-id: ccd0bad23450444b8e7f3aefc5d4cde3"}
+{"type":"after","callId":"call@18","endTime":9184.555,"result":{"response":{"url":"http://localhost:8000/api/task-imports/67/prepare-plan","status":200,"statusText":"OK","headers":[{"name":"date","value":"Thu, 23 Jul 2026 06:45:13 GMT"},{"name":"server","value":"uvicorn"},{"name":"content-length","value":"1079"},{"name":"content-type","value":"application/json"},{"name":"x-correlation-id","value":"ccd0bad23450444b8e7f3aefc5d4cde3"}],"serverAddr":{"ipAddress":"127.0.0.1","port":8000},"fetchUid":"01546b2b5f21925ba227f82f3d50cd00"}}}
+{"type":"before","callId":"call@20","startTime":9186.293,"class":"APIRequestContext","method":"fetch","params":{"url":"http://localhost:8000/api/task-imports/67/approve?operator_username=tester1","method":"POST","timeout":0},"stepId":"pw:api@37"}
+{"type":"log","callId":"call@20","time":9186.721,"message":"→ POST http://localhost:8000/api/task-imports/67/approve?operator_username=tester1"}
+{"type":"log","callId":"call@20","time":9186.732,"message":"  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.7827.55 Safari/537.36"}
+{"type":"log","callId":"call@20","time":9186.736,"message":"  accept: */*"}
+{"type":"log","callId":"call@20","time":9186.74,"message":"  accept-encoding: gzip,deflate,br"}
+{"type":"log","callId":"call@20","time":9190.276,"message":"← 200 OK"}
+{"type":"log","callId":"call@20","time":9190.289,"message":"  date: Thu, 23 Jul 2026 06:45:13 GMT"}
+{"type":"log","callId":"call@20","time":9190.294,"message":"  server: uvicorn"}
+{"type":"log","callId":"call@20","time":9190.298,"message":"  content-length: 1103"}
+{"type":"log","callId":"call@20","time":9190.302,"message":"  content-type: application/json"}
+{"type":"log","callId":"call@20","time":9190.305,"message":"  x-correlation-id: 7a2ab5a5a00d4286a0d7a6f09e257865"}
+{"type":"after","callId":"call@20","endTime":9190.66,"result":{"response":{"url":"http://localhost:8000/api/task-imports/67/approve?operator_username=tester1","status":200,"statusText":"OK","headers":[{"name":"date","value":"Thu, 23 Jul 2026 06:45:13 GMT"},{"name":"server","value":"uvicorn"},{"name":"content-length","value":"1103"},{"name":"content-type","value":"application/json"},{"name":"x-correlation-id","value":"7a2ab5a5a00d4286a0d7a6f09e257865"}],"serverAddr":{"ipAddress":"127.0.0.1","port":8000},"fetchUid":"ac28e0203075c8f5068a00556d2c9b7b"}}}
+{"type":"before","callId":"call@22","startTime":9192.247,"class":"APIRequestContext","method":"fetch","params":{"url":"http://localhost:8000/api/task-imports/67/run","method":"POST","timeout":0},"stepId":"pw:api@39"}
+{"type":"log","callId":"call@22","time":9192.996,"message":"→ POST http://localhost:8000/api/task-imports/67/run"}
+{"type":"log","callId":"call@22","time":9193.01,"message":"  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.7827.55 Safari/537.36"}
+{"type":"log","callId":"call@22","time":9193.016,"message":"  accept: */*"}
+{"type":"log","callId":"call@22","time":9193.02,"message":"  accept-encoding: gzip,deflate,br"}
+{"type":"log","callId":"call@22","time":13071.653,"message":"← 200 OK"}
+{"type":"log","callId":"call@22","time":13071.666,"message":"  date: Thu, 23 Jul 2026 06:45:13 GMT"}
+{"type":"log","callId":"call@22","time":13071.671,"message":"  server: uvicorn"}
+{"type":"log","callId":"call@22","time":13071.674,"message":"  content-length: 1075"}
+{"type":"log","callId":"call@22","time":13071.678,"message":"  content-type: application/json"}
+{"type":"log","callId":"call@22","time":13071.682,"message":"  x-correlation-id: 19c792d0ef93411f8e1057c7fc0bc497"}
+{"type":"after","callId":"call@22","endTime":13071.908,"result":{"response":{"url":"http://localhost:8000/api/task-imports/67/run","status":200,"statusText":"OK","headers":[{"name":"date","value":"Thu, 23 Jul 2026 06:45:13 GMT"},{"name":"server","value":"uvicorn"},{"name":"content-length","value":"1075"},{"name":"content-type","value":"application/json"},{"name":"x-correlation-id","value":"19c792d0ef93411f8e1057c7fc0bc497"}],"serverAddr":{"ipAddress":"127.0.0.1","port":8000},"fetchUid":"b0723ebce5a1494dee565acab9447bf0"}}}
+{"type":"before","callId":"call@25","startTime":13075.532,"class":"APIRequestContext","method":"fetch","params":{"url":"http://localhost:8001/api/tasks/1","method":"GET","timeout":0},"stepId":"pw:api@43"}
+{"type":"log","callId":"call@25","time":13075.988,"message":"→ GET http://localhost:8001/api/tasks/1"}
+{"type":"log","callId":"call@25","time":13076,"message":"  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.7827.55 Safari/537.36"}
+{"type":"log","callId":"call@25","time":13076.005,"message":"  accept: */*"}
+{"type":"log","callId":"call@25","time":13076.009,"message":"  accept-encoding: gzip,deflate,br"}
+{"type":"log","callId":"call@25","time":13394.842,"message":"← 200 OK"}
+{"type":"log","callId":"call@25","time":13394.88,"message":"  date: Thu, 23 Jul 2026 06:45:17 GMT"}
+{"type":"log","callId":"call@25","time":13394.889,"message":"  server: uvicorn"}
+{"type":"log","callId":"call@25","time":13394.896,"message":"  content-length: 963"}
+{"type":"log","callId":"call@25","time":13394.902,"message":"  content-type: application/json"}
+{"type":"after","callId":"call@25","endTime":13395.73,"result":{"response":{"url":"http://localhost:8001/api/tasks/1","status":200,"statusText":"OK","headers":[{"name":"date","value":"Thu, 23 Jul 2026 06:45:17 GMT"},{"name":"server","value":"uvicorn"},{"name":"content-length","value":"963"},{"name":"content-type","value":"application/json"}],"serverAddr":{"ipAddress":"127.0.0.1","port":8001},"fetchUid":"497536ddb8e3a5f89d5b2c8571cacc6f"}}}

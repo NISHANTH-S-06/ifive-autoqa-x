@@ -3,6 +3,7 @@ import sqlite3
 
 from alembic import command
 from alembic.migration import MigrationContext
+from alembic.script import ScriptDirectory
 from alembic.autogenerate import compare_metadata
 import pytest
 from sqlalchemy import create_engine
@@ -13,6 +14,7 @@ from app.migration_metadata import get_migration_metadata
 from app.migration_safety import (
   BASELINE_REVISION,
   PROJECT_ISOLATION_REVISION,
+  TASK_CONNECTOR_REVISION,
   assert_database_at_head,
   assert_schema_matches,
   data_snapshot,
@@ -57,7 +59,9 @@ def test_application_startup_requires_alembic_head(tmp_path):
   with pytest.raises(RuntimeError, match='Database migration required before startup'):
     assert_database_at_head(database_url)
   command.upgrade(make_alembic_config(database_url), 'head')
-  assert assert_database_at_head(database_url) == PROJECT_ISOLATION_REVISION
+  from alembic.script import ScriptDirectory
+  expected_head = ScriptDirectory.from_config(make_alembic_config(database_url)).get_current_head()
+  assert assert_database_at_head(database_url) == expected_head
 
 
 def test_targeted_recovery_removes_only_verified_empty_accidental_tables(tmp_path):
@@ -116,11 +120,12 @@ def test_empty_database_upgrade_to_head(tmp_path):
   database_url = sqlite_url(tmp_path / 'empty-upgrade.db')
   command.upgrade(make_alembic_config(database_url), 'head')
   snapshot = schema_snapshot(database_url)
-  assert len(snapshot['tables']) == 47
+  assert len(snapshot['tables']) == 64  # Phase 6: +8 advanced validation tables + 3 visual regression tables
   assert len(snapshot['triggers']) == 16
   connection = sqlite3.connect(tmp_path / 'empty-upgrade.db')
   try:
-    assert connection.execute('SELECT version_num FROM alembic_version').fetchone() == (PROJECT_ISOLATION_REVISION,)
+    expected_head = ScriptDirectory.from_config(make_alembic_config(database_url)).get_current_head()
+    assert connection.execute('SELECT version_num FROM alembic_version').fetchone() == (expected_head,)
   finally:
     connection.close()
   assert database_health(database_url).integrity == 'ok'
