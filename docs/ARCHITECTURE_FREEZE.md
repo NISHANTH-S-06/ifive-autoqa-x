@@ -19,7 +19,7 @@ that produced the 64-router split in the first place.
 ### In scope (26 backend routers / 19 frontend pages) — Version 1.0.0 Release Candidate surface
 
 | Frontend page | Backend router(s) |
-|---|---|
+| --- | --- |
 | DashboardPage | dashboard, results |
 | TaskImportsPage | task_imports, company_tasks |
 | TestPlansPage | test_plans, test_management |
@@ -63,9 +63,11 @@ audited further until you make an explicit decision on it (wire in, or remove).
 2. If a Step 3-15 task would naturally touch orphaned code (e.g., a dependency used by
    both live and orphaned routers), that dependency is documented but not changed until
    the orphaned-code decision is made separately.
+
 3. No new "enterprise/AI/autonomous/intelligence"-style modules are added during this
    sprint. This sprint is stabilization only, per the original instruction ("Do NOT
    implement Phase 17", "Do NOT begin Phase 7" in earlier authorized turns).
+
 4. This freeze does not expire automatically. It stays in force until you explicitly
    revise it.
 

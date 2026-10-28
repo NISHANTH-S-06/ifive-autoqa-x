@@ -86,7 +86,17 @@ export function AutomatedRunsCore() {
     }
   };
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    void load();
+    const interval = setInterval(() => {
+      void fetchAutomatedRuns().then(res => setRuns(res.items ?? [])).catch(() => {});
+      if (selected && (selected.status === 'RUNNING' || selected.status === 'QUEUED')) {
+        void fetchAutomatedSteps(selected.id).then(setSteps).catch(() => {});
+        void fetchExecutionArtifacts(selected.id).then(setArtifacts).catch(() => {});
+      }
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [selected?.id, selected?.status]);
 
   const openRun = async (run: AutomatedRun) => {
     setSelected(run);
@@ -368,14 +378,25 @@ export function AutomatedRunsCore() {
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                   {artifacts.map((a) => (
-                    <div key={a.id} style={{ padding: '0.6rem 0.8rem', borderRadius: 'var(--radius-md)', background: 'var(--bg-card-subtle)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <div>
-                        <span style={{ fontWeight: 600, fontSize: '0.825rem' }}>{a.artifact_type}</span>
-                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{a.original_filename} • {a.size_bytes} bytes • SHA256: {a.sha256.slice(0, 12)}</p>
+                    <div key={a.id} style={{ padding: '0.75rem', borderRadius: 'var(--radius-md)', background: 'var(--bg-card-subtle)', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div>
+                          <span style={{ fontWeight: 600, fontSize: '0.825rem' }}>{a.artifact_type}</span>
+                          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{a.original_filename} • {a.size_bytes} bytes • SHA256: {a.sha256.slice(0, 12)}</p>
+                        </div>
+                        <a href={executionArtifactDownloadUrl(a.id)} target="_blank" rel="noreferrer" className="btn btn-secondary btn-sm">
+                          <Download size={13} /> Download
+                        </a>
                       </div>
-                      <a href={executionArtifactDownloadUrl(a.id)} target="_blank" rel="noreferrer" className="btn btn-secondary btn-sm">
-                        <Download size={13} /> Download
-                      </a>
+                      {(a.artifact_type === 'SCREENSHOT' || a.original_filename?.endsWith('.png')) && (
+                        <div style={{ marginTop: '0.25rem', overflow: 'hidden', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
+                          <img
+                            src={executionArtifactDownloadUrl(a.id)}
+                            alt={a.original_filename}
+                            style={{ width: '100%', maxHeight: '280px', objectFit: 'cover', display: 'block' }}
+                          />
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

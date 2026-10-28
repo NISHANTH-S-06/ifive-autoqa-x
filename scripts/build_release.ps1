@@ -31,7 +31,12 @@ Get-ChildItem -LiteralPath $destination -Recurse -Directory -Filter '__pycache__
 Get-ChildItem -LiteralPath $destination -Recurse -File | Where-Object { $_.Extension -in @('.pyc','.pyo') } | Remove-Item -Force
 $forbidden = @('.venv','node_modules','test-results','playwright-report','runtime','backups','logs','pids')
 foreach ($name in $forbidden) {
-  if (Get-ChildItem -LiteralPath $destination -Recurse -Force | Where-Object { $_.Name -eq $name }) { throw "Release contains forbidden item: $name" }
+  $found = Get-ChildItem -LiteralPath $destination -Recurse -Force | Where-Object { 
+    $rel = $_.FullName.Substring($destination.Length + 1)
+    $parts = $rel.Split([System.IO.Path]::DirectorySeparatorChar)
+    $parts.Count -eq 1 -and $parts[0] -eq $name
+  }
+  if ($found) { throw "Release contains forbidden item: $name" }
 }
 if (Get-ChildItem -LiteralPath $destination -Recurse -File | Where-Object { $_.Extension -in @('.db','.sqlite','.sqlite3','.log') -or $_.Name -eq '.env' }) { throw 'Release contains runtime data, logs, or environment secrets.' }
 $secretHits = Get-ChildItem -LiteralPath $destination -Recurse -File | Select-String -Pattern '-----BEGIN [A-Z ]*PRIVATE KEY-----','\bsk-[A-Za-z0-9_-]{20,}','(?i)\bBearer\s+[A-Za-z0-9._~+/-]{16,}'

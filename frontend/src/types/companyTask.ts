@@ -82,6 +82,7 @@ export interface CompanyTaskListItem {
   title: string;
   module: string | null;
   feature: string | null;
+  target_url?: string | null;
   priority: TaskPriority;
   severity: TaskSeverity;
   status: TaskStatus;

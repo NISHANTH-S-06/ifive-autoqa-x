@@ -1,11 +1,13 @@
 # Phase 6.6 — Accessibility & WCAG Compliance Report
 
 ## Overview
+
 This document records accessibility audits and WCAG compliance checks conducted across the **iFive AutoQA X** web application frontend.
 
 ---
 
 ## 1. Key Accessibility Enhancements
+
 - **Focus Rings**: Added visible focus rings (`:focus` and `:focus-visible` with `box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5)`) to all buttons, inputs, selects, and textareas.
 - **Keyboard Navigation**:
   - Modal backdrops trap focus and listen to the `Escape` key for keyboard-driven dismissal.
@@ -27,6 +29,6 @@ This document records accessibility audits and WCAG compliance checks conducted 
 | :--- | :--- | :--- |
 | **Visible Focus States** | CSS focus rings on `.btn`, `.input`, `.select`, `.textarea` | VERIFIED |
 | **Keyboard Dismissal** | `Escape` key handler in `Modal.tsx` & `Drawer.tsx` | VERIFIED |
-| **Non-Color Status Indicators**| Icon + text badge mapping in `StatusBadge.tsx` | VERIFIED |
+| **Non-Color Status Indicators** | Icon + text badge mapping in `StatusBadge.tsx` | VERIFIED |
 | **Form Labels & Error Text** | `<label>` + `role="alert"` in `FormField.tsx` | VERIFIED |
 | **Contrast Compliance** | HSL CSS tokens in `variables.css` | VERIFIED |

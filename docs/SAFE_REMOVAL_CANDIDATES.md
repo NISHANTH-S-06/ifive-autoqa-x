@@ -2,9 +2,10 @@
 
 Applying the strict rule: a module is removable only if ALL of the following are true — no frontend usage, no backend usage, no runtime usage, no scheduler usage, no plugin registration, no startup registration, no tests, no documentation, no configuration, no dynamic loading.
 
-**Result: 0 modules meet the full removal bar.**
+### Result: 0 modules meet the full removal bar.
 
 Checked against the strict rule:
+
 - No frontend usage: TRUE for all 40 UNKNOWN-classified modules (see MODULE_CLASSIFICATION.md).
 - No backend usage: TRUE for these 40 (checked, excluding main.py registration).
 - No tests: TRUE for these 40.
@@ -15,7 +16,7 @@ Checked against the strict rule:
 ## Therefore, per the strict rule, all 40 UNKNOWN modules are marked:
 
 | Module | Status | Reason |
-|---|---|---|
+| --- | --- | --- |
 | ai_optimizer | **KEEP** | Runtime usage not verified (no live-traffic capture performed this pass) — fails the strict all-criteria-true rule |
 | api_hub | **KEEP** | Runtime usage not verified (no live-traffic capture performed this pass) — fails the strict all-criteria-true rule |
 | business_process | **KEEP** | Runtime usage not verified (no live-traffic capture performed this pass) — fails the strict all-criteria-true rule |
@@ -58,4 +59,5 @@ Checked against the strict rule:
 | war_room | **KEEP** | Runtime usage not verified (no live-traffic capture performed this pass) — fails the strict all-criteria-true rule |
 
 ## What would actually let any module move out of KEEP
+
 Real runtime request-log capture: add temporary structured logging to the FastAPI middleware layer (or reuse the existing `app.add_middleware(...)` at `main.py:58`) that records every matched route, run it while manually exercising all 82 ACTIVE frontend pages end-to-end for a realistic session length, then re-check this list against modules that received zero hits. That is the deferred `RUNTIME_USAGE_REPORT.md` step — not done in this pass, and this file makes no claim otherwise.

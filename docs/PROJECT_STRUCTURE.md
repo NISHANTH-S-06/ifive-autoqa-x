@@ -6,7 +6,7 @@ not inferred or assumed.
 
 ## 1. Top-level layout
 
-```
+```text
 D:\AUTO_QA_TESTING\
   backend/         FastAPI application (298 .py files under app/, 36 test files under tests/)
   frontend/        Main operator dashboard (React + TS + Vite, no react-router)
@@ -26,14 +26,14 @@ D:\AUTO_QA_TESTING\
 comments mark exactly where scope expanded beyond the original product:
 
 | Block | Router count | Comment in source | Status |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | Original product (health, auth, operators, audit, projects, test_runs, dashboard, results, reports, security, agents, test_management, test_plans, connection_targets, automated_execution, defects, task_imports, system, advanced_validation, local_schedules, company_tasks, ai, visual_regression, enterprise, discovery, copilot) | 26 | none (foundational) | **LIVE** — every one of these has a corresponding page imported in `App.tsx` |
 | Unlabeled pre-Phase-13 additions (release_readiness, autonomous_regression, knowledge_graph, digital_qa, digital_twin, continuous_monitoring, predictive_quality, multi_reports, experience_memory, pattern_recognition, test_evolution, root_cause_graph, release_command_center, autonomous_monitoring_v2, onboarding, test_studio, test_lab, data_factory, war_room, plugin_marketplace, integrations) | 21 | none | **ORPHANED** — none matched an `App.tsx` import |
 | `# Phase 13 – Enterprise Cloud Platform` | 14 | explicit in source | **ORPHANED** |
 | `# Phase 14 – Enterprise Autonomous AI QA Operating System (AI QA OS)` | 10 | explicit in source | **ORPHANED** |
 | `# Phase 15 – Autonomous Enterprise Software Quality Intelligence Platform` | 9 | explicit in source | **ORPHANED** |
 | `# Phase 16 – Enterprise Autonomous Software Engineering Intelligence Platform` | 10 | explicit in source | **ORPHANED** (has real frontend pages + `phase16Service.ts`, but zero import from `App.tsx`) |
-| **Total** | **90** | | **26 live / 64 orphaned** |
+| **Total** | **90** |  | **26 live / 64 orphaned** |
 
 ## 3. Frontend module inventory
 
@@ -62,6 +62,7 @@ the orphaned pages above.
 
 - `release/stage14/` — **63 separate full release-package snapshots** accumulated between
   2026-07-13 and 2026-07-28, none pruned.
+
 - `runtime/pytest-*`, `runtime/pytest_temp`, `backend/all_tmp`, `backend/p14_tmp`,
   `backend/p15_tmp`, `backend/p15_tmp2`, `backend/p15_tmp3` — dozens of leftover
   pytest `--basetemp` directories (`tmp_path` never cleaned between CI/manual runs),

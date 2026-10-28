@@ -1,10 +1,11 @@
 import { test, expect } from '@playwright/test';
 
-const AUTOQA_URL          = 'http://127.0.0.1:8000';
+const AUTOQA_URL          = process.env.AUTOQA_URL || (process.env.BACKEND_PORT ? `http://127.0.0.1:${process.env.BACKEND_PORT}` : 'http://127.0.0.1:8300');
 const MOCK_PORTAL_URL     = 'http://127.0.0.1:8001';
 const DEMO_ERP_URL        = 'http://127.0.0.1:5175';
 const DEMO_ERP_BACKEND_URL= 'http://127.0.0.1:8002';
-const FRONTEND_URL        = 'http://127.0.0.1:5173';
+const FRONTEND_URL        = process.env.FRONTEND_URL || (process.env.FRONTEND_PORT ? `http://127.0.0.1:${process.env.FRONTEND_PORT}` : 'http://127.0.0.1:3300');
+
 
 test.describe('Phase 5.2 — Real End-to-End Acceptance Verification', () => {
   test.describe.configure({ mode: 'serial' });

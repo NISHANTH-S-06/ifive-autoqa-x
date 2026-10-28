@@ -11,11 +11,13 @@ No backend API services were rewritten, modified, or bypassed. Every single modu
 ## Design Tokens & Theme Engine
 
 ### 1. Palette & Theme Modes
+
 - **Light Theme**: Soft `#f8fafc` background with crisp `#ffffff` surface cards, elevated shadows, and `#0f172a` primary text.
 - **Dark Theme**: Deep `#0b0f17` background with `#131b2e` surface cards, dark borders (`#24304f`), and high-contrast `#f1f5f9` text.
 - **Persistence**: Theme selection persists across browser refreshes via `localStorage.getItem('autoqa_theme')` and automatically respects system OS preferences (`prefers-color-scheme`).
 
 ### 2. Status Design System
+
 The status badge system provides clear visual feedback across 11 standardized status tokens:
 
 | Status Code | Visual Style | Icon | Semantic Meaning |
@@ -36,7 +38,7 @@ The status badge system provides clear visual feedback across 11 standardized st
 
 ## Layout Architecture (`AppShell`)
 
-```
+```text
 +-----------------------------------------------------------------------------------+
 |  BRAND (i5)  |  PROJECT SELECTOR  | STAGE: LOCAL | SEARCH (Ctrl+K) | THEME | USER |
 +-----------------------------------------------------------------------------------+
@@ -59,6 +61,7 @@ The status badge system provides clear visual feedback across 11 standardized st
 ```
 
 ### Main Layout Components
+
 1. **`AppShell.tsx`**: Top-level application shell enclosing sidebar navigation, top header, page content viewport, and global toast container.
 2. **`Sidebar.tsx`**: Collapsible left sidebar providing navigation to all 13 module pages with active route indicators and attention badges.
 3. **`TopHeader.tsx`**: Fixed top header with active project switcher (`/api/test-projects`), environment indicator, global search bar, notification drawer, theme toggle, and user menu.

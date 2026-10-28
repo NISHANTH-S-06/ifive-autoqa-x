@@ -14,6 +14,7 @@ application's entry point that can ever reach it.
 ## Orphaned backend routers (64) — registered, but unreachable from the live UI
 
 ### Unlabeled block (21) — added before the explicit "Phase 13" comment marker
+
 `release_readiness`, `autonomous_regression`, `knowledge_graph`, `digital_qa`,
 `digital_twin`, `continuous_monitoring`, `predictive_quality`, `multi_reports`,
 `experience_memory`, `pattern_recognition`, `test_evolution`, `root_cause_graph`,
@@ -21,20 +22,24 @@ application's entry point that can ever reach it.
 `test_lab`, `data_factory`, `war_room`, `plugin_marketplace`, `integrations`
 
 ### `# Phase 13 – Enterprise Cloud Platform` (14)
+
 `distributed_execution`, `cloud_browser_farm`, `execution_stream`, `observability`,
 `enterprise_analytics`, `release_governance`, `compliance_center`, `api_hub`,
 `marketplace_ecosystem`, `enterprise_devops`, `multi_region_cloud`,
 `enterprise_security_center`, `ai_optimizer`, `executive_command_center`
 
 ### `# Phase 14 – Enterprise Autonomous AI QA Operating System (AI QA OS)` (10)
+
 `enterprise_brain`, `workflows`, `business_process`, `incidents`, `governance`,
 `forecast`, `executive_advisor`, `knowledge_universe`, `report_factory`, `optimization_v2`
 
 ### `# Phase 15 – Autonomous Enterprise Software Quality Intelligence Platform` (9)
+
 `software_graph`, `change_impact`, `code_review`, `coverage`, `release_intelligence`,
 `defects_hub`, `engineering`, `knowledge_lake`, `mission_control`
 
 ### `# Phase 16 – Enterprise Autonomous Software Engineering Intelligence Platform` (10)
+
 `knowledge_lake_v2`, `requirements`, `traceability`, `architecture`, `code_quality`,
 `release_certification`, `observability_ai`, `customer_intelligence`, `policies`,
 `sdlc_orchestrator`
@@ -77,8 +82,10 @@ Confirmed orphaned (verified present on disk, verified absent from `App.tsx` imp
 - Corresponding `backend/app/models/*.py` — not yet individually cross-referenced;
   some orphaned routers may share models/tables with live features (would need
   per-model FK/import checking before any removal).
+
 - Corresponding `backend/tests/test_*.py` files for the 64 orphaned routers —
   not yet enumerated by exact filename.
+
 - `release/stage14/` (63 snapshots) and pytest tmp directories — these are disk-space
   debt, not dead *code*, but are safe, zero-risk deletion candidates whenever you want
   them cleaned (they are build outputs / test scratch data, not source).

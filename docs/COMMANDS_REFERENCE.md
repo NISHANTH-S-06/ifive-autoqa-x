@@ -13,6 +13,7 @@ Run this first after database setup:
 ```
 
 **What it does:**
+
 - Prompts for username
 - Prompts for email
 - Prompts for role: `VIEWER`, `TESTER`, `APPROVER`, or `ADMIN`
@@ -21,6 +22,7 @@ Run this first after database setup:
 - Forces password change on first login
 
 **Password Requirements:**
+
 - ✓ Minimum 12 characters
 - ✓ At least one uppercase letter (A-Z)
 - ✓ At least one lowercase letter (a-z)
@@ -49,7 +51,8 @@ cd d:\AUTO_QA_TESTING\backend
 ```
 
 Expected output:
-```
+
+```text
 (.venv) PS D:\AUTO_QA_TESTING\backend>
 ```
 
@@ -62,7 +65,8 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
 Expected output:
-```
+
+```text
 Uvicorn running on http://127.0.0.1:8000
 Press CTRL+C to quit
 ```
@@ -102,7 +106,8 @@ npm run dev
 ```
 
 Expected output:
-```
+
+```text
 VITE v6.0.7  ready in 500 ms
 ➜  Local:   http://localhost:5173/
 ```
@@ -145,6 +150,7 @@ cd d:\AUTO_QA_TESTING
 ```
 
 This opens **two separate terminal windows**:
+
 - Terminal 1: Backend on port 8000
 - Terminal 2: Frontend on port 5173
 
@@ -156,6 +162,7 @@ cd d:\AUTO_QA_TESTING
 ```
 
 Starts:
+
 - Backend (FastAPI)
 - Frontend (Static Server)
 - Worker Service
@@ -164,11 +171,13 @@ Starts:
 ### Option 3: Start Individual Services
 
 **Backend only:**
+
 ```powershell
 .\scripts\start_backend.ps1 -EnvironmentFile config\development.env -Port 8000
 ```
 
 **Frontend only (requires production build first):**
+
 ```powershell
 cd frontend && npm run build
 .\scripts\start_frontend.ps1 -EnvironmentFile config\development.env -Port 5173
@@ -308,7 +317,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
 ## 📍 Access Points After Startup
 
 | Service | URL | Purpose |
-|---------|-----|---------|
+| --------- | ----- | --------- |
 | Frontend | http://localhost:5173 | Web application |
 | Backend | http://127.0.0.1:8000 | API server |
 | API Docs | http://127.0.0.1:8000/docs | Swagger UI (interactive docs) |
@@ -322,12 +331,14 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
 If you want to manually do everything step by step:
 
 **Terminal 1 - Setup:**
+
 ```powershell
 cd d:\AUTO_QA_TESTING
 .\scripts\create_local_operator.ps1  # Create user account
 ```
 
 **Terminal 2 - Backend:**
+
 ```powershell
 cd d:\AUTO_QA_TESTING\backend
 .\.venv\Scripts\Activate.ps1
@@ -335,12 +346,14 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
 **Terminal 3 - Frontend:**
+
 ```powershell
 cd d:\AUTO_QA_TESTING\frontend
 npm run dev
 ```
 
 **Then:**
+
 1. Open browser: http://localhost:5173
 2. Login with credentials from step 1
 3. Change password on first login

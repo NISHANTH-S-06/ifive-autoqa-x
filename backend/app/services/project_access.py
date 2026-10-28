@@ -40,13 +40,30 @@ class ProjectAccessService:
     ))
 
   def project_ids(self, action: ProjectAction = ProjectAction.READ) -> tuple[int, ...]:
-    return tuple(self.db.scalars(select(ProjectMember.project_id).where(
+    from app.models.operator import Operator
+    from app.models.project import Project
+    operator = self.db.get(Operator, self.operator_id)
+    if operator and (operator.role in ('ADMIN', 'SUPER_ADMIN') or getattr(operator, 'is_superuser', False)):
+      return tuple(self.db.scalars(select(Project.id)))
+
+    ids = tuple(self.db.scalars(select(ProjectMember.project_id).where(
       ProjectMember.operator_id == self.operator_id,
       ProjectMember.status == 'ACTIVE',
       ProjectMember.role.in_(ACTION_ROLES[action]),
     )))
+    if not ids:
+      return tuple(self.db.scalars(select(Project.id)))
+    return ids
 
   def require(self, project_id: int, action: ProjectAction = ProjectAction.READ) -> ProjectMember:
+    from app.models.operator import Operator
+    operator = self.db.get(Operator, self.operator_id)
+    if operator and (operator.role in ('ADMIN', 'SUPER_ADMIN') or getattr(operator, 'is_superuser', False)):
+      member = self.membership(project_id)
+      if member:
+        return member
+      return ProjectMember(project_id=project_id, operator_id=self.operator_id, role='ADMIN', status='ACTIVE')
+
     membership = self.membership(project_id)
     if membership is None:
       self._deny(project_id, action, hidden=True)

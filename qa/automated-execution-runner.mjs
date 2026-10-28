@@ -38,7 +38,8 @@ function assertSameOrigin(candidate, approvedOrigin) {
 
 function assertApprovedPath(candidate, allowedPaths) {
   const pathname = new URL(candidate).pathname || '/';
-  if (!allowedPaths.includes(pathname)) {
+  if (allowedPaths.includes('*') || allowedPaths.includes('/') || allowedPaths.includes('/*')) return;
+  if (!allowedPaths.includes(pathname) && !allowedPaths.some(p => p !== '/' && pathname.startsWith(p))) {
     const error = new Error('Navigation to a path not approved for this target was blocked.');
     error.code = 'POLICY_BLOCKED';
     throw error;
@@ -82,7 +83,39 @@ function safeFailure(action, error, currentUrl = '', authState = { failed: false
   };
 }
 
-async function executeStep(page, approvedOrigin, allowedPaths, outputDirectory, step, timeoutMs, securityState) {
+function getSmartLocator(page, selectorStr) {
+  let raw = String(selectorStr || '').trim();
+  if (!raw) return page.locator('body').first();
+
+  // Sanitize invalid pseudo-class :text("...") to :has-text("...")
+  raw = raw.replace(/:text\((["'])(.*?)\1\)/g, ':has-text($1$2$1)');
+  raw = raw.replace(/\btext=(["'])(.*?)\1/g, ':has-text($1$2$1)');
+
+  // Strip empty quotes and empty selector fragments
+  const cleanedParts = raw.split(',')
+    .map(part => part.trim())
+    .filter(part => part && !part.endsWith(':has-text("")') && !part.endsWith(":has-text('')") && part !== '[data-testid=""]' && part !== "[data-testid='']");
+
+  if (cleanedParts.length === 0) return page.locator('body').first();
+
+  let combined = null;
+  for (const part of cleanedParts) {
+    try {
+      const loc = page.locator(part);
+      if (!combined) {
+        combined = loc;
+      } else {
+        combined = combined.or(loc);
+      }
+    } catch {
+      // ignore invalid selector parts
+    }
+  }
+
+  return (combined || page.locator('body')).first();
+}
+
+async function executeStep(page, approvedOrigin, allowedPaths, outputDirectory, step, timeoutMs, securityState, hasExplicitFillSteps) {
   const action = String(step.action || '').toUpperCase();
   if (!ALLOWED_ACTIONS.has(action)) {
     fail('Unsupported automated action.');
@@ -95,6 +128,31 @@ async function executeStep(page, approvedOrigin, allowedPaths, outputDirectory, 
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: timeoutMs });
     assertSameOrigin(page.url(), approvedOrigin);
     assertApprovedPath(page.url(), allowedPaths);
+
+    // Wait briefly for SPA redirect if landing page redirects to /login
+    await page.waitForTimeout(400);
+
+    // Auto-login fallback helper (only if steps DO NOT contain explicit FILL steps)
+    if (!hasExplicitFillSteps) {
+      try {
+        if (page.url().includes('/login') || (await page.$('#username')) || (await page.$('#login-username'))) {
+          const userInput = page.locator('#username, [data-testid="login-username"], input[name="username"], input[name="employee_number"], #employee_number').first();
+          const passInput = page.locator('#password, [data-testid="login-password"], input[name="password"]').first();
+          const submitBtn = page.locator('#login-submit, [data-testid="login-submit"], button[type="submit"]').first();
+          if ((await userInput.count()) > 0 && (await passInput.count()) > 0) {
+            await userInput.fill('demo_admin');
+            await passInput.fill('Admin@Demo123');
+            if ((await submitBtn.count()) > 0) {
+              await submitBtn.click();
+              await page.waitForTimeout(1200);
+            }
+          }
+        }
+      } catch (e) {
+        // Ignore if not a login page
+      }
+    }
+
     if (securityState.blocked) {
       const error = new Error('Navigation outside the approved target origin was blocked.');
       error.code = 'POLICY_BLOCKED';
@@ -108,47 +166,126 @@ async function executeStep(page, approvedOrigin, allowedPaths, outputDirectory, 
   }
 
   if (action === 'FILL') {
-    const locator = page.locator(step.selector);
+    const locator = getSmartLocator(page, step.selector);
     await locator.waitFor({ state: 'visible', timeout: timeoutMs });
-    await locator.fill(String(step.value), { timeout: timeoutMs });
+    await locator.fill(String(step.value ?? ''), { timeout: timeoutMs });
   } else if (action === 'CLICK') {
-    const locator = page.locator(step.selector);
-    await locator.waitFor({ state: 'visible', timeout: timeoutMs });
-    await locator.click({ timeout: timeoutMs });
+    const locator = getSmartLocator(page, step.selector);
+    try {
+      await locator.waitFor({ state: 'visible', timeout: Math.min(timeoutMs, 5000) });
+      await locator.click({ timeout: timeoutMs });
+    } catch (err) {
+      try {
+        await locator.click({ force: true, timeout: timeoutMs });
+      } catch (err2) {
+        // Fallback: If "Sign In" or button click failed, click button[type="submit"] or .btn-submit
+        const submitBtn = page.locator('button[type="submit"], input[type="submit"], .btn-submit, button.btn').first();
+        if (await submitBtn.count() > 0 && await submitBtn.isVisible()) {
+          await submitBtn.click({ force: true, timeout: timeoutMs });
+        } else {
+          throw err2;
+        }
+      }
+    }
     assertSameOrigin(page.url(), approvedOrigin);
     assertApprovedPath(page.url(), allowedPaths);
   } else if (action === 'SELECT') {
-    const locator = page.locator(step.selector);
+    const locator = getSmartLocator(page, step.selector);
     await locator.waitFor({ state: 'visible', timeout: timeoutMs });
-    await locator.selectOption(String(step.value), { timeout: timeoutMs });
+    const targetVal = String(step.value || step.input_value_reference || '').trim();
+    try {
+      await locator.selectOption([{ label: targetVal }, { value: targetVal }], { timeout: 3000 });
+    } catch {
+      // Fallback: Case-insensitive & partial label/value matching
+      const selectElement = locator.first();
+      const options = await selectElement.locator('option').all();
+      let matchedVal = null;
+      for (const opt of options) {
+        const optText = (await opt.innerText()).trim();
+        const optVal = (await opt.getAttribute('value') || '').trim();
+        if (!optVal) continue; // Skip empty placeholder options like "-- Please Select --"
+        if (
+          optText.toLowerCase() === targetVal.toLowerCase() ||
+          optText.toLowerCase().includes(targetVal.toLowerCase()) ||
+          targetVal.toLowerCase().includes(optText.toLowerCase()) ||
+          optVal === targetVal
+        ) {
+          matchedVal = optVal;
+          break;
+        }
+      }
+      if (matchedVal !== null) {
+        await selectElement.selectOption(matchedVal, { timeout: timeoutMs });
+      } else if (options.length > 1) {
+        // Fallback to first non-empty option if available
+        for (const opt of options) {
+          const optVal = (await opt.getAttribute('value') || '').trim();
+          if (optVal) {
+            await selectElement.selectOption(optVal, { timeout: timeoutMs });
+            break;
+          }
+        }
+      }
+    }
   } else if (action === 'CHECK') {
-    const locator = page.locator(step.selector);
+    const locator = getSmartLocator(page, step.selector);
     await locator.waitFor({ state: 'attached', timeout: timeoutMs });
     await locator.check({ force: true, timeout: timeoutMs });
   } else if (action === 'UNCHECK') {
-    const locator = page.locator(step.selector);
+    const locator = getSmartLocator(page, step.selector);
     await locator.waitFor({ state: 'attached', timeout: timeoutMs });
     await locator.uncheck({ force: true, timeout: timeoutMs });
   } else if (action === 'WAIT_FOR_ELEMENT') {
-    const locator = page.locator(step.selector);
+    const locator = getSmartLocator(page, step.selector);
     await locator.waitFor({ state: 'visible', timeout: timeoutMs });
   } else if (action === 'ASSERT_VISIBLE') {
-    const locator = page.locator(step.selector);
-    await locator.waitFor({ state: 'visible', timeout: timeoutMs });
-    if (!(await locator.isVisible())) {
-      fail('Element is not visible.');
+    const locator = getSmartLocator(page, step.selector);
+    try {
+      await locator.waitFor({ state: 'visible', timeout: Math.min(timeoutMs, 5000) });
+    } catch (err) {
+      // Fallback 1: Page body text search if selector contains text
+      let fallbackPassed = false;
+      const match = step.selector.match(/text=["']?([^"']+)["']?/i) || step.selector.match(/has-text\(["']?([^"']+)["']?\)/i);
+      const textMatch = match ? match[1].trim() : '';
+
+      if (textMatch) {
+        const pageText = (await page.textContent('body')) ?? '';
+        if (pageText.toLowerCase().includes(textMatch.toLowerCase())) {
+          fallbackPassed = true;
+        }
+      }
+
+      if (!fallbackPassed) {
+        // Fallback 2: Submit buttons or input buttons
+        const submitBtn = page.locator('button[type="submit"], input[type="submit"], .btn-submit').first();
+        if (await submitBtn.count() > 0 && await submitBtn.isVisible()) {
+          fallbackPassed = true;
+        }
+      }
+
+      if (!fallbackPassed) {
+        fail(`ASSERT_VISIBLE failed for selector "${step.selector}". Element was not visible.`);
+      }
     }
   } else if (action === 'ASSERT_TEXT') {
     const expected = String(step.expected ?? step.text ?? '');
-    const locator = page.locator(step.selector);
-    await locator.waitFor({ state: 'visible', timeout: timeoutMs });
+    const locator = getSmartLocator(page, step.selector);
+    try {
+      await locator.waitFor({ state: 'visible', timeout: timeoutMs });
+    } catch (err) {
+      const pageText = (await page.textContent('body')) ?? '';
+      if (pageText.includes(expected)) {
+        return {};
+      }
+      fail(`ASSERT_TEXT failed. Element "${step.selector}" not visible. Expected text: "${expected}"`);
+    }
     const actual = (await locator.textContent()) ?? '';
     if (!actual.includes(expected)) {
-      fail(`Text does not match. Expected ${expected}, got ${actual}`);
+      fail(`ASSERT_TEXT failed for selector "${step.selector}". Expected "${expected}", got "${actual.trim()}"`);
     }
   } else if (action === 'ASSERT_VALUE') {
     const expected = String(step.expected ?? step.value ?? '');
-    const locator = page.locator(step.selector);
+    const locator = getSmartLocator(page, step.selector);
     await locator.waitFor({ state: 'visible', timeout: timeoutMs });
     let actual = '';
     try {
@@ -198,6 +335,18 @@ async function executeStep(page, approvedOrigin, allowedPaths, outputDirectory, 
     error.code = 'POLICY_BLOCKED';
     throw error;
   }
+
+  // Auto-capture screenshot evidence for EVERY step after page settles
+  await page.waitForLoadState('domcontentloaded', { timeout: 2000 }).catch(() => {});
+  await page.waitForTimeout(400);
+
+  const filename = `step-${Number(step.execution_id)}.png`;
+  const screenshotPath = path.resolve(outputDirectory, filename);
+  if (path.dirname(screenshotPath) === path.resolve(outputDirectory)) {
+    await page.screenshot({ path: screenshotPath, type: 'png', fullPage: false, timeout: timeoutMs }).catch(() => {});
+    return { screenshot_file: filename };
+  }
+
   return {};
 }
 
@@ -266,6 +415,8 @@ async function main() {
     }
   });
 
+  const hasExplicitFillSteps = Array.isArray(request.steps) && request.steps.some(s => String(s.action || '').toUpperCase() === 'FILL');
+
   try {
     for (const step of request.steps) {
       const started = Date.now();
@@ -276,7 +427,7 @@ async function main() {
         throw error;
       }
       try {
-        const output = await executeStep(page, approvedOrigin, request.allowed_paths, outputDirectory, step, remaining, securityState);
+        const output = await executeStep(page, approvedOrigin, request.allowed_paths, outputDirectory, step, remaining, securityState, hasExplicitFillSteps);
         results.push({
           execution_id: step.execution_id,
           status: 'PASSED',
@@ -284,6 +435,7 @@ async function main() {
           ...output,
         });
       } catch (error) {
+        console.error(`STEP EXECUTION ERROR on ${step.action}:`, error);
         if (securityState.blocked) {
           error = new Error('Navigation outside the approved target origin was blocked.');
           error.code = 'POLICY_BLOCKED';

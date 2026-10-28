@@ -572,7 +572,7 @@ def execute_next_job(db: Session, worker_key: str = 'local-stage10-worker', allo
       db.flush()
       return None
 
-    statement = select(ExecutionJob).where(ExecutionJob.run_id == target_run_id, ExecutionJob.status == 'QUEUED')
+    statement = select(ExecutionJob).where(ExecutionJob.run_id == target_run_id, ExecutionJob.status.in_(['QUEUED', 'RUNNING']))
     if allowed_project_ids is not None:
       if not allowed_project_ids:
         db.flush()
@@ -584,13 +584,13 @@ def execute_next_job(db: Session, worker_key: str = 'local-stage10-worker', allo
       return None
 
     run = db.get(AutomatedRun, job.run_id)
-    if run is None or run.status in TERMINAL_RUN_STATES:
+    if run is None:
       db.flush()
       return None
 
     res = db.execute(
       update(ExecutionJob)
-      .where(ExecutionJob.id == job.id, ExecutionJob.status == 'QUEUED')
+      .where(ExecutionJob.id == job.id, ExecutionJob.status.in_(['QUEUED', 'RUNNING']))
       .values(status='RUNNING', lease_owner=worker_key, lease_expires_at=now + timedelta(seconds=120), attempts=ExecutionJob.attempts + 1, updated_at=now)
       .execution_options(synchronize_session=False)
     )
@@ -649,21 +649,39 @@ def execute_next_job(db: Session, worker_key: str = 'local-stage10-worker', allo
       if outcome is None:
         run_case.status = 'FAILED'; run_case.failure_classification = 'PLAYWRIGHT'; run_case.safe_error_message = 'Playwright did not return a result for this step.'
         raise BrowserExecutionError(run_case.safe_error_message)
-      result = db.scalar(select(AutomatedStepResult).where(AutomatedStepResult.run_case_id == run_case.id, AutomatedStepResult.step_number == int(step['step_number'])))
+      result = next((item for item in run_case.step_results if item.step_number == int(step['step_number'])), None)
       if result is None:
-        result = AutomatedStepResult(project_id=run.project_id, run_case_id=run_case.id, step_number=int(step['step_number']))
+        result = db.scalar(select(AutomatedStepResult).where(AutomatedStepResult.run_case_id == run_case.id, AutomatedStepResult.step_number == int(step['step_number'])))
+      if result is None:
+        result = AutomatedStepResult(
+          project_id=run.project_id,
+          run_case_id=run_case.id,
+          step_number=int(step['step_number']),
+          action_type=step['action'],
+          selector=step.get('selector'),
+          value_redacted=safe_text(step.get('value')),
+          expected_redacted=safe_text(step.get('expected') or step.get('text') or step.get('path')),
+          status=outcome['status'],
+          failure_classification=outcome.get('failure_classification'),
+          safe_error_message=safe_text(outcome.get('safe_error_message')),
+          started_at=datetime.utcnow(),
+          completed_at=datetime.utcnow(),
+          duration_ms=int(outcome.get('duration_ms') or 0),
+        )
         db.add(result)
-      result.action_type = step['action']
-      result.selector = step.get('selector')
-      result.value_redacted = safe_text(step.get('value'))
-      result.expected_redacted = safe_text(step.get('expected') or step.get('text') or step.get('path'))
-      result.status = outcome['status']
-      result.failure_classification = outcome.get('failure_classification')
-      result.safe_error_message = safe_text(outcome.get('safe_error_message'))
-      result.started_at = result.started_at or datetime.utcnow()
-      result.completed_at = datetime.utcnow()
-      result.duration_ms = int(outcome.get('duration_ms') or 0)
-      db.flush()
+        db.flush()
+      else:
+        result.action_type = step['action']
+        result.selector = step.get('selector')
+        result.value_redacted = safe_text(step.get('value'))
+        result.expected_redacted = safe_text(step.get('expected') or step.get('text') or step.get('path'))
+        result.status = outcome['status']
+        result.failure_classification = outcome.get('failure_classification')
+        result.safe_error_message = safe_text(outcome.get('safe_error_message'))
+        result.started_at = result.started_at or datetime.utcnow()
+        result.completed_at = datetime.utcnow()
+        result.duration_ms = int(outcome.get('duration_ms') or 0)
+        db.flush()
       if outcome.get('screenshot_file'):
         content = outcome.get('screenshot_content')
         if not content and outcome.get('screenshot_file'):
@@ -736,6 +754,7 @@ def execute_next_job(db: Session, worker_key: str = 'local-stage10-worker', allo
       add_event(db, run.id, 'execution_completed', 'SUCCESS' if run.status == 'PASSED' else 'FAILED', run.safe_error_message, {'status': run.status})
       store_artifact(db, run, None, None, 'SUMMARY', 'run-summary.json', json.dumps({'run_key': run.run_key, 'status': run.status, 'completed_steps': run.completed_steps, 'failed_steps': run.failed_steps}, sort_keys=True).encode(), 'application/json')
       db.flush()
+      db.commit()
   return run
 
 

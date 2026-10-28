@@ -1,4 +1,4 @@
-﻿import React, { type FormEvent, useEffect, useRef, useState } from 'react';
+import React, { type FormEvent, useEffect, useRef, useState } from 'react';
 import { AuthContext } from './authContext';
 import { AppShell } from './layouts/AppShell';
 import type { ModuleKey } from './components/layout/Sidebar';
@@ -158,7 +158,7 @@ export default function App() {
                 autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+                placeholder="••••••••"
               />
             </div>
 
@@ -171,10 +171,50 @@ export default function App() {
               {submitting ? 'Signing in...' : 'Sign In to AutoQA'}
             </button>
           </form>
+
+          {/* Demo Credentials */}
+          <div style={{
+            marginTop: '1.25rem',
+            padding: '0.85rem 1rem',
+            borderRadius: 'var(--radius-md)',
+            background: 'rgba(37,99,235,0.08)',
+            border: '1px solid rgba(37,99,235,0.2)',
+            fontSize: '0.78rem',
+          }}>
+            <div style={{ fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Demo Credentials
+            </div>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={{ textAlign: 'left', color: 'var(--text-muted)', fontWeight: 600, paddingBottom: '0.25rem' }}>Username</th>
+                  <th style={{ textAlign: 'left', color: 'var(--text-muted)', fontWeight: 600, paddingBottom: '0.25rem' }}>Role</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  { u: 'admin', r: 'Admin' },
+                  { u: 'approver', r: 'Admin' },
+                  { u: 'dev1', r: 'Developer' },
+                  { u: 'viewer', r: 'Viewer' },
+                ].map(({ u, r }) => (
+                  <tr key={u} style={{ cursor: 'pointer' }} onClick={() => { setUsername(u); setPassword('Admin@1234'); }}>
+                    <td style={{ padding: '2px 0', color: '#60a5fa', fontFamily: 'monospace', fontWeight: 600 }}>{u}</td>
+                    <td style={{ padding: '2px 0', color: 'var(--text-muted)' }}>{r}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div style={{ marginTop: '0.5rem', color: 'var(--text-muted)' }}>
+              Password: <span style={{ fontFamily: 'monospace', color: '#34d399', fontWeight: 700 }}>Admin@1234</span>
+              <span style={{ marginLeft: '0.5rem', fontSize: '0.72rem', opacity: 0.7 }}>(click row to auto-fill)</span>
+            </div>
+          </div>
         </div>
       </main>
     );
   }
+
 
   if (operator.must_change_password) {
     return (
@@ -213,11 +253,11 @@ export default function App() {
       case 'autonomous-regression': return <AutonomousRegressionPage />;
       case 'enterprise-mgmt': return <EnterpriseManagementPage />;
       case 'enterprise-discovery': return <EnterpriseDiscoveryPage />;
-      case 'company-tasks': return <CompanyTasksPage />;
-      case 'my-tasks': return <MyTasksPage />;
+      case 'company-tasks': return <CompanyTasksPage onNavigate={setActiveModule} />;
+      case 'my-tasks': return <MyTasksPage onNavigate={setActiveModule} />;
       case 'task-imports': return <TaskImportsPage />;
       case 'test-plans': return <TestPlansPage />;
-      case 'approval-queue': return <ApprovalQueuePage />;
+      case 'approval-queue': return <ApprovalQueuePage onNavigate={setActiveModule} />;
       case 'automated-runs': return <AutomatedRunsPage />;
       case 'visual-regression': return <VisualRegressionPage />;
       case 'advanced-validation': return <AdvancedValidationPage />;

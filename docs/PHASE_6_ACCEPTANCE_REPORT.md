@@ -9,7 +9,7 @@
 ## 1. Acceptance Matrix
 
 | Component / Feature | Required Status | Verified Status | Evidence & Test Suite |
-|---------------------|:---------------:|:---------------:|-----------------------|
+| --------------------- | :---------------: | :---------------: | ----------------------- |
 | API Validation Engine | Complete | `VERIFIED_COMPLETE` | `backend/tests/test_phase6_advanced_validation.py` & Playwright Tests 01, 02 |
 | Read-Only DB Validation Engine | Complete | `VERIFIED_COMPLETE` | `backend/tests/test_phase6_advanced_validation.py` & Playwright Tests 01, 03, 04 |
 | Accessibility Validation Engine | Complete | `VERIFIED_COMPLETE` | Playwright Tests 06, 07 |
@@ -38,6 +38,7 @@
 ---
 
 ## 3. Disclaimers & Scope Limits
+
 - This platform is a local-first proof-of-concept for QA testing and non-production verification.
 - Real target execution remains disabled by default and requires explicit non-production target authorization.
 - Production deployment operations remain out of scope for local release verification.

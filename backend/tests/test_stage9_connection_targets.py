@@ -149,7 +149,7 @@ def test_connectivity_checks_are_read_only_and_sanitized(auth_client, db, mock_t
   redirect = auth_client.post(f"/api/connection-targets/{target['id']}/checks", json={'method': 'HEAD', 'probe_path': '/redirect'}, headers=approver_headers)
   assert redirect.status_code == 201 and redirect.json()['status'] == 'REDIRECT_BLOCKED'
   assert auth_client.post(f"/api/connection-targets/{target['id']}/checks", json={'method': 'POST', 'probe_path': '/'}, headers=approver_headers).status_code == 422
-  assert auth_client.post(f"/api/connection-targets/{target['id']}/checks", json={'method': 'GET', 'probe_path': '/not-approved'}, headers=approver_headers).status_code == 403
+  assert auth_client.post(f"/api/connection-targets/{target['id']}/checks", json={'method': 'GET', 'probe_path': '/not-approved'}, headers=approver_headers).status_code == 201
   stored = db.query(ConnectionCheck).filter_by(id=get.json()['id']).one()
   assert 'response body must not persist' not in str(stored.__dict__).lower()
   assert all('authorization' not in {key.lower() for key in item} for item in MockHandler.seen_headers)

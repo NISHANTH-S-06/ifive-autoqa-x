@@ -9,6 +9,14 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from app.api import advanced_validation, agents, audit, auth, automated_execution, company_tasks, connection_targets, dashboard, defects, health, local_schedules, operators, projects, reports, results, security, system, task_imports, test_management, test_plans, test_runs, ai, visual_regression, enterprise, discovery, copilot, release_readiness, autonomous_regression, knowledge_graph, digital_qa, digital_twin, continuous_monitoring, predictive_quality, multi_reports, experience_memory, pattern_recognition, test_evolution, root_cause_graph, release_command_center, autonomous_monitoring_v2, onboarding, test_studio, test_lab, data_factory, war_room, plugin_marketplace, integrations
+# Version 9.0 — Universal Autonomous Software & Digital Ecosystem Platform (Phase 27)
+from app.v9.api.v9_router import router as v9_router
+# Version 10.0 — Artificial General Enterprise Intelligence / AGEI (Phase 28)
+from app.v10.api.v10_router import router as v10_router
+# Version 11.0 — Autonomous Enterprise Intelligence Network (Phase 29)
+from app.v11.api.v11_router import router as v11_router
+# Version 12.0 — Autonomous Digital Civilization Platform (Phase 30)
+from app.v12.api.v12_router import router as v12_router
 # NOTE: Phase 13-16 "Enterprise Universe" routers (distributed_execution,
 # cloud_browser_farm, execution_stream, observability, enterprise_analytics,
 # release_governance, compliance_center, api_hub, marketplace_ecosystem,
@@ -53,7 +61,8 @@ app = FastAPI(
 
 app.add_middleware(
   CORSMiddleware,
-  allow_origins=list({settings.frontend_url, 'http://127.0.0.1:5173', 'http://localhost:5173'}),
+  allow_origins=list({settings.frontend_url, 'http://127.0.0.1:3300', 'http://localhost:3300', 'http://127.0.0.1:5173', 'http://localhost:5173'}),
+
   allow_methods=['GET', 'POST', 'PATCH', 'DELETE', 'PUT'],
   allow_headers=['Content-Type', 'X-CSRF-Token'],
   allow_credentials=True,
@@ -133,6 +142,14 @@ app.include_router(data_factory.router, prefix='/api')
 app.include_router(war_room.router, prefix='/api')
 app.include_router(plugin_marketplace.router, prefix='/api')
 app.include_router(integrations.router, prefix='/api')
+# Version 9.0 — Universal Autonomous Software & Digital Ecosystem Platform
+app.include_router(v9_router)
+# Version 10.0 — Artificial General Enterprise Intelligence (AGEI)
+app.include_router(v10_router)
+# Version 11.0 — Autonomous Enterprise Intelligence Network
+app.include_router(v11_router)
+# Version 12.0 — Autonomous Digital Civilization Platform
+app.include_router(v12_router)
 
 # Phase 13-16 "Enterprise Universe" routers archived (see NOTE above) —
 # not registered. Restore from archive/backend_api_phase13-16/ if needed.

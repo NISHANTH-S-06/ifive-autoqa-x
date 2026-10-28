@@ -15,7 +15,7 @@ export function PageHeader({
   actions
 }: PageHeaderProps) {
   return (
-    <div style={{ marginBottom: '1.5rem' }}>
+    <div style={{ marginBottom: '1.5rem', paddingTop: '0.25rem' }}>
       {/* Breadcrumb Trail */}
       <nav style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
         <Home size={12} style={{ color: 'var(--text-subtle)' }} />

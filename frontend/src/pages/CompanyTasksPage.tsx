@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, Search, RefreshCw, ChevronDown, X, Save,
   ClipboardList, User, Link2, FileText, Calendar,
-  CheckCircle2, AlertCircle, Clock, Zap, Filter, Activity
+  CheckCircle2, AlertCircle, Clock, Zap, Filter, Activity, ExternalLink, Trash2
 } from 'lucide-react';
 import { useAuth } from '../authContext';
 import type { CompanyTaskListItem, CompanyTaskCreate, TaskStatus, TaskPriority, TaskSeverity, TaskBrowser, AutoQARunStatusRead } from '../types/companyTask';
@@ -11,7 +11,7 @@ import {
   TASK_STATUS_LABELS, TASK_STATUS_COLORS, TASK_PRIORITY_COLORS, TASK_SEVERITY_COLORS, TASK_STATUS_PIPELINE
 } from '../types/companyTask';
 import {
-  listTasks, createTask, assignDeveloper, transitionStatus, approveAndRunAutoQA, getTaskRunStatus, markDeliveryComplete
+  listTasks, createTask, assignDeveloper, transitionStatus, approveAndRunAutoQA, getTaskRunStatus, markDeliveryComplete, autoRunFullWorkflow, deleteTask
 } from '../services/companyTasks';
 import { listOperators } from '../services/auth';
 import type { Operator } from '../types/auth';
@@ -117,10 +117,12 @@ function StatusPipeline({ status }: { status: TaskStatus }) {
 function TaskCard({
   task,
   onSelect,
+  onDelete,
   role,
 }: {
   task: CompanyTaskListItem;
   onSelect: (task: CompanyTaskListItem) => void;
+  onDelete?: (task: CompanyTaskListItem) => void;
   role: string;
 }) {
   const isOverdue = task.target_date && new Date(task.target_date) < new Date() &&
@@ -156,7 +158,27 @@ function TaskCard({
             {task.title}
           </h3>
         </div>
-        <PriorityChip priority={task.priority} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          <PriorityChip priority={task.priority} />
+          {role === 'ADMIN' && onDelete && (
+            <button
+              className="btn btn-ghost btn-sm"
+              title="Delete Task"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(task);
+              }}
+              style={{
+                padding: '0.25rem 0.4rem',
+                color: '#ef4444',
+                opacity: 0.8,
+                borderRadius: 'var(--radius-md)',
+              }}
+            >
+              <Trash2 size={14} />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Status pipeline */}
@@ -168,6 +190,30 @@ function TaskCard({
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
           <StatusChip status={task.status} />
+          {task.target_url && (
+            <a
+              href={task.target_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              title={`Open target app: ${task.target_url}`}
+              style={{
+                fontSize: '0.72rem',
+                color: '#3b82f6',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.25rem',
+                textDecoration: 'none',
+                background: '#3b82f612',
+                padding: '0.15rem 0.5rem',
+                borderRadius: 'var(--radius-full)',
+                border: '1px solid #3b82f630',
+                fontWeight: 600,
+              }}
+            >
+              <ExternalLink size={10} /> {task.target_url.replace('http://127.0.0.1:', 'Port :')}
+            </a>
+          )}
           {task.assigned_developer && (
             <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
               <User size={12} /> {task.assigned_developer.display_name}
@@ -473,7 +519,7 @@ function LiveRunPoller({ taskId, initialStatus, onComplete }: { taskId: number; 
 }
 
 // ── Main Page ──────────────────────────────────────────────────────────────
-export function CompanyTasksPage() {
+export function CompanyTasksPage({ onNavigate }: { onNavigate?: (module: any) => void } = {}) {
   const { operator } = useAuth();
   const role = operator?.role ?? 'VIEWER';
 
@@ -515,13 +561,42 @@ export function CompanyTasksPage() {
 
   useEffect(() => { void load(); }, [load]);
 
+  const [taskToDelete, setTaskToDelete] = useState<CompanyTaskListItem | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDeleteTask = async (id: number) => {
+    setDeleting(true);
+    try {
+      await deleteTask(id);
+      setTaskToDelete(null);
+      if (selectedTask?.id === id) setSelectedTask(null);
+      void load();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to delete task.');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const handleApproveAutoQA = async (id: number) => {
     try {
       await approveAndRunAutoQA(id);
       refreshSelected.current = true;
       void load();
+      if (onNavigate) onNavigate('automated-runs');
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to trigger AutoQA.');
+    }
+  };
+
+  const handleAutoRunFull = async (id: number) => {
+    try {
+      await autoRunFullWorkflow(id);
+      refreshSelected.current = true;
+      void load();
+      if (onNavigate) onNavigate('automated-runs');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to auto-run workflow.');
     }
   };
 
@@ -678,6 +753,7 @@ export function CompanyTasksPage() {
                         key={task.id}
                         task={task}
                         onSelect={setSelectedTask}
+                        onDelete={setTaskToDelete}
                         role={role}
                       />
                     ))}
@@ -801,6 +877,16 @@ export function CompanyTasksPage() {
                     <CheckCircle2 size={16} /> Mark Delivery Complete
                   </button>
                 )}
+
+                {role === 'ADMIN' && (
+                  <button
+                    className="btn btn-ghost"
+                    style={{ width: '100%', color: '#ef4444', border: '1px solid #ef444440', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.65rem' }}
+                    onClick={() => setTaskToDelete(selectedTask)}
+                  >
+                    <Trash2 size={16} /> Delete Task
+                  </button>
+                )}
                 
                 <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textAlign: 'center' }}>
                   ID: CT-{selectedTask.id}
@@ -808,6 +894,44 @@ export function CompanyTasksPage() {
               </div>
             </motion.div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {taskToDelete && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-xl)', padding: '1.5rem', width: '100%', maxWidth: '440px', boxShadow: 'var(--shadow-xl)', border: '1px solid #ef444440' }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+                <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#ef444420', border: '1px solid #ef444440', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444' }}>
+                  <Trash2 size={20} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-main)' }}>Delete Task?</h3>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>This action cannot be undone.</p>
+                </div>
+              </div>
+              <p style={{ fontSize: '0.875rem', color: 'var(--text-main)', marginBottom: '1.25rem', padding: '0.75rem', background: 'var(--bg-base)', borderRadius: 'var(--radius-md)' }}>
+                Are you sure you want to delete <strong>"{taskToDelete.title}"</strong> (CT-{taskToDelete.id})?
+              </p>
+              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                <button className="btn btn-secondary" onClick={() => setTaskToDelete(null)} disabled={deleting}>Cancel</button>
+                <button
+                  className="btn"
+                  style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '0.5rem 1.25rem', borderRadius: 'var(--radius-md)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                  onClick={() => handleDeleteTask(taskToDelete.id)}
+                  disabled={deleting}
+                >
+                  <Trash2 size={15} /> {deleting ? 'Deleting...' : 'Delete Task'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>

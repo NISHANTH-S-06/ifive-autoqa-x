@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
 import {
   LayoutDashboard, FileInput, FileCode, CheckSquare, PlayCircle,
@@ -99,8 +99,9 @@ interface NavItem {
   key: ModuleKey;
   label: string;
   icon: React.ElementType;
+  section?: string;
   badge?: number;
-  roles?: OperatorRole[]; // if undefined â†’ visible to all roles
+  roles?: OperatorRole[];
 }
 
 interface SidebarProps {
@@ -123,143 +124,37 @@ const ROLE_LABELS: Record<OperatorRole, { label: string; color: string }> = {
 };
 
 const ALL_NAV_ITEMS: NavItem[] = [
-  // â”€â”€ Dashboard & AI QA Brain Command Center (all roles) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { key: 'release-war-room', label: 'Release War Room', icon: ShieldCheck, roles: ['ADMIN', 'PROJECT_MANAGER', 'APPROVER'] },
-  { key: 'release-command-center', label: 'Release Command Center', icon: ShieldCheck, roles: ['ADMIN', 'PROJECT_MANAGER', 'APPROVER'] },
-  { key: 'self-evolution-dashboard', label: 'Self Evolution Dashboard', icon: Brain },
-  { key: 'ai-memory-center', label: 'AI Memory Center', icon: Sparkles },
-  { key: 'pattern-recognition', label: 'Pattern Recognition', icon: Activity },
-  { key: 'prediction-center', label: 'Prediction Center', icon: BarChart3 },
-  { key: 'knowledge-graph-viewer', label: 'Knowledge Graph Viewer', icon: FolderGit2 },
-  { key: 'optimization-center', label: 'Optimization Center', icon: Settings },
-  { key: 'executive-analytics', label: 'Executive Analytics', icon: BarChart3, roles: ['ADMIN', 'PROJECT_MANAGER', 'APPROVER'] },
+  // ── Overview & Delivery ────────────────────────────────────────────────────
+  { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, section: 'Overview & Delivery' },
+  { key: 'company-tasks', label: 'Delivery Tasks', icon: ClipboardList, section: 'Overview & Delivery', roles: ['ADMIN', 'PROJECT_MANAGER'] },
+  { key: 'projects', label: 'Projects', icon: FolderGit2, section: 'Overview & Delivery', roles: ['ADMIN', 'PROJECT_MANAGER'] },
+  { key: 'my-tasks', label: 'Developer Tasks', icon: ListTodo, section: 'Overview & Delivery', roles: ['DEVELOPER', 'ADMIN', 'PROJECT_MANAGER'] },
 
-  // â”€â”€ Zero-Code Ecosystem â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  { key: 'project-onboarding', label: 'Onboarding Wizard', icon: Globe },
-  { key: 'zero-code-studio', label: 'Zero-Code Test Studio', icon: Layers2 },
-  { key: 'autonomous-test-lab', label: 'Autonomous Test Lab', icon: Monitor },
-  { key: 'data-factory', label: 'Test Data Factory', icon: Database },
-  { key: 'plugin-marketplace', label: 'Plugin Marketplace', icon: Package },
-  { key: 'enterprise-integrations', label: 'Enterprise Integrations', icon: Globe2 },
+  // ── Zero-Code & Testing Studio ─────────────────────────────────────────────
+  { key: 'zero-code-studio', label: 'Zero-Code Studio', icon: FileCheck2, section: 'Zero-Code & Testing' },
+  { key: 'visual-regression', label: 'Visual Regression', icon: Monitor, section: 'Zero-Code & Testing' },
+  { key: 'test-plans', label: 'Test Plans & Flows', icon: FileCode, section: 'Zero-Code & Testing', roles: ['ADMIN', 'TESTER', 'APPROVER', 'PROJECT_MANAGER'] },
+  { key: 'approval-queue', label: 'QA Approval Queue', icon: CheckSquare, section: 'Zero-Code & Testing', roles: ['ADMIN', 'TESTER', 'APPROVER'] },
+  { key: 'automated-runs', label: 'Automated Runs', icon: PlayCircle, section: 'Zero-Code & Testing', roles: ['ADMIN', 'TESTER', 'APPROVER'] },
 
-  // Phase 13-16 "Enterprise Universe" nav items archived on 2026-07-30
-  // (see archive/backend_api_phase13-16/ and archive/frontend_pages_phase13-16/).
+  // ── Autonomous AI Suite ──────────────────────────────────────────────────
+  { key: 'ai-copilot', label: 'Enterprise AI Copilot', icon: Bot, section: 'Autonomous AI Suite' },
+  { key: 'digital-qa', label: 'Digital QA Engineer', icon: Brain, section: 'Autonomous AI Suite' },
+  { key: 'autonomous-test-lab', label: 'Autonomous Test Lab', icon: Sparkles, section: 'Autonomous AI Suite' },
+  { key: 'autonomous-regression', label: 'Autonomous Regression', icon: Activity, section: 'Autonomous AI Suite' },
+  { key: 'ai-memory-center', label: 'AI Memory Center', icon: Database, section: 'Autonomous AI Suite' },
 
-  { key: 'digital-qa', label: 'AI Digital QA Engineer', icon: Brain },
-  { key: 'executive-intelligence', label: 'Executive Intelligence', icon: BarChart3, roles: ['ADMIN', 'PROJECT_MANAGER', 'APPROVER'] },
-  { key: 'continuous-monitoring', label: 'Autonomous Monitoring', icon: Activity, roles: ['ADMIN', 'PROJECT_MANAGER', 'TESTER', 'DEVELOPER'] },
-  { key: 'ai-copilot', label: 'AI Copilot', icon: Bot },
-  { key: 'release-readiness', label: 'Release Readiness', icon: ShieldCheck, roles: ['ADMIN', 'PROJECT_MANAGER', 'APPROVER', 'TESTER'] },
-  { key: 'autonomous-regression', label: 'Autonomous Regression', icon: GitBranch, roles: ['ADMIN', 'PROJECT_MANAGER', 'DEVELOPER', 'TESTER'] },
-  { key: 'enterprise-discovery', label: 'AI Flow Discovery', icon: Globe, roles: ['ADMIN', 'TESTER', 'PROJECT_MANAGER', 'APPROVER'] },
-  { key: 'enterprise-mgmt', label: 'Enterprise Setup', icon: Building2, roles: ['ADMIN', 'PROJECT_MANAGER'] },
+  // ── Release & Reports ─────────────────────────────────────────────────────
+  { key: 'release-command-center', label: 'Release Command Center', icon: GitBranch, section: 'Release & Reports' },
+  { key: 'evidence', label: 'Screenshots & Evidence', icon: Image, section: 'Release & Reports', roles: ['ADMIN', 'TESTER', 'APPROVER', 'DEVELOPER', 'PROJECT_MANAGER'] },
+  { key: 'defects', label: 'Defects & Bug Loops', icon: Bug, section: 'Release & Reports', roles: ['ADMIN', 'TESTER', 'APPROVER', 'DEVELOPER', 'PROJECT_MANAGER'] },
+  { key: 'reports', label: 'Reports & Analytics', icon: BarChart3, section: 'Release & Reports', roles: ['ADMIN', 'PROJECT_MANAGER', 'TESTER', 'APPROVER', 'VIEWER'] },
 
-  // â”€â”€ Company Task Workflow â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  {
-    key: 'company-tasks',
-    label: 'Company Tasks',
-    icon: ClipboardList,
-    roles: ['ADMIN', 'PROJECT_MANAGER'],
-  },
-  {
-    key: 'my-tasks',
-    label: 'My Tasks',
-    icon: ListTodo,
-    roles: ['DEVELOPER', 'ADMIN'],
-  },
-
-  // â”€â”€ QA / Tester workflow â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  {
-    key: 'approval-queue',
-    label: 'Approval Queue',
-    icon: CheckSquare,
-    roles: ['ADMIN', 'TESTER', 'APPROVER'],
-  },
-  {
-    key: 'automated-runs',
-    label: 'Automated Runs',
-    icon: PlayCircle,
-    roles: ['ADMIN', 'TESTER', 'APPROVER'],
-  },
-  {
-    key: 'visual-regression',
-    label: 'Visual Regression',
-    icon: Image,
-    roles: ['ADMIN', 'TESTER', 'APPROVER', 'PROJECT_MANAGER', 'DEVELOPER'],
-  },
-  {
-    key: 'evidence',
-    label: 'Evidence',
-    icon: Image,
-    roles: ['ADMIN', 'TESTER', 'APPROVER'],
-  },
-
-  {
-    key: 'defects',
-    label: 'Defects',
-    icon: Bug,
-    roles: ['ADMIN', 'TESTER', 'APPROVER', 'DEVELOPER'],
-  },
-
-  // â”€â”€ Project / Test Management (PM + Admin) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  {
-    key: 'projects',
-    label: 'Projects',
-    icon: FolderGit2,
-    roles: ['ADMIN', 'PROJECT_MANAGER'],
-  },
-  {
-    key: 'task-imports',
-    label: 'Task Imports',
-    icon: FileInput,
-    roles: ['ADMIN', 'PROJECT_MANAGER'],
-  },
-  {
-    key: 'test-plans',
-    label: 'Test Plans',
-    icon: FileCode,
-    roles: ['ADMIN', 'TESTER', 'APPROVER', 'PROJECT_MANAGER'],
-  },
-  {
-    key: 'advanced-validation',
-    label: 'Advanced Validation',
-    icon: ShieldCheck,
-    roles: ['ADMIN', 'TESTER', 'APPROVER'],
-  },
-
-  // â”€â”€ Reports (PM, Tester, Viewer, Admin) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  {
-    key: 'reports',
-    label: 'Reports',
-    icon: BarChart3,
-    roles: ['ADMIN', 'PROJECT_MANAGER', 'TESTER', 'APPROVER', 'VIEWER'],
-  },
-
-  // â”€â”€ Admin-only â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  {
-    key: 'schedules',
-    label: 'Local Schedules',
-    icon: CalendarClock,
-    roles: ['ADMIN'],
-  },
-  {
-    key: 'audit-logs',
-    label: 'Audit Logs',
-    icon: FileCheck2,
-    roles: ['ADMIN'],
-  },
-  {
-    key: 'users',
-    label: 'Users',
-    icon: Users,
-    roles: ['ADMIN'],
-  },
-  {
-    key: 'settings',
-    label: 'Settings',
-    icon: Settings,
-  },
+  // ── System & Security ───────────────────────────────────────────────────
+  { key: 'task-imports', label: 'Task Imports', icon: FileInput, section: 'System & Security', roles: ['ADMIN', 'PROJECT_MANAGER'] },
+  { key: 'audit-logs', label: 'Audit Logs', icon: ShieldCheck, section: 'System & Security', roles: ['ADMIN'] },
+  { key: 'users', label: 'User Management', icon: Users, section: 'System & Security', roles: ['ADMIN'] },
+  { key: 'settings', label: 'Settings', icon: Settings, section: 'System & Security' },
 ];
 
 export function Sidebar({
@@ -361,13 +256,27 @@ export function Sidebar({
 
       {/* Nav List */}
       <nav style={{ flex: 1, overflowY: 'auto', padding: '0.75rem 0.5rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-        {navItems.map((item) => {
+        {navItems.map((item, index) => {
           const Icon = item.icon;
           const isActive = activeModule === item.key;
+          const showSectionHeader = !collapsed && item.section && (index === 0 || navItems[index - 1].section !== item.section);
 
           return (
-            <motion.button
-              key={item.key}
+            <React.Fragment key={item.key}>
+              {showSectionHeader && (
+                <div style={{
+                  padding: index === 0 ? '0.25rem 0.5rem 0.35rem' : '0.85rem 0.5rem 0.35rem',
+                  fontSize: '0.65rem',
+                  fontWeight: 700,
+                  color: 'var(--text-subtle)',
+                  letterSpacing: '0.06em',
+                  textTransform: 'uppercase',
+                  opacity: 0.7
+                }}>
+                  {item.section}
+                </div>
+              )}
+              <motion.button
               onClick={() => onSelectModule(item.key)}
               whileHover={{ x: collapsed ? 0 : 2 }}
               whileTap={{ scale: 0.97 }}
@@ -421,6 +330,7 @@ export function Sidebar({
                 </span>
               )}
             </motion.button>
+          </React.Fragment>
           );
         })}
       </nav>

@@ -37,7 +37,8 @@ export function ConnectionTargetsCore() {
   const [search, setSearch] = useState('');
   const [stateFilter, setStateFilter] = useState('');
   const [dirty, setDirty] = useState(false);
-  const [form, setForm] = useState({ project_id: 0, target_key: '', name: '', description: '', environment_type: 'LOCAL', base_url: 'http://127.0.0.1:5173', allowed_probe_paths: '/\n/health', tls_required: false, tls_verify: true, connection_timeout_seconds: 3 });
+  const [form, setForm] = useState({ project_id: 0, target_key: '', name: '', description: '', environment_type: 'LOCAL', base_url: 'http://127.0.0.1:3300', allowed_probe_paths: '/\n/health', tls_required: false, tls_verify: true, connection_timeout_seconds: 3 });
+
   const [checkForm, setCheckForm] = useState({ method: 'HEAD' as CheckMethod, probe_path: '/' });
   const [profileForm, setProfileForm] = useState({ profile_name: '', username_hint: '', secret_source: 'NONE' });
   const canAuthor = ['TESTER', 'ADMIN'].includes(operator.role);

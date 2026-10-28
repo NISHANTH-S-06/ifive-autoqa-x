@@ -27,7 +27,7 @@
 
 **Product Coverage (scope):**
 | Product | Modules Covered |
-|---------|----------------|
+| --------- | ---------------- |
 | iFive ERP | Login, Customer, Vendor, Inventory, Purchase, Sales, Finance, Production, Reports, Export, Permissions |
 | iFive HRMS | Employee, Attendance, Leave, Shift, Payroll Preview, Recruitment, Self Service, Permissions |
 | iFive CRM | Lead, Opportunity, Follow-up, Quotation, Customer, Reports, Permissions |
@@ -35,6 +35,7 @@
 | App Integration | Authentication, API Mapping, Schema, Retry, Duplicate Handling, Webhooks, Error Logs |
 
 **Running Microservices (all 6 HTTP 200 OK):**
+
 - AutoQA Backend (FastAPI + uvicorn): http://127.0.0.1:8000 (Health: 200 OK)
 - Mock Task Portal Backend (FastAPI + uvicorn): http://127.0.0.1:8001 (Health: 200 OK)
 - Demo Product Backend (FastAPI + uvicorn): http://127.0.0.1:8002 (Health: 200 OK)
@@ -47,7 +48,7 @@
 ## 2. Stage-by-Stage Status
 
 | Stage / Phase | Name | Status | Verification Metrics |
-|---------------|------|:---:|----------------------|
+| --------------- | ------ | :---: | ---------------------- |
 | **Phase 0 / Stage 1–3** | Project Scaffold & Backend Foundation | VERIFIED | Structure, FastAPI lifespan, DB migrations, 132 AutoQA backend tests passed |
 | **Phase 1** | Mock Task Portal Backend & Frontend | VERIFIED | Task sync, status tracking, 23/23 portal pytest passed |
 | **Phase 2** | Demo Product Backend & Frontend | VERIFIED | HRMS & Inventory ERP mock modules, 21/21 demo product pytest passed |
@@ -63,7 +64,7 @@
 ### `backend/app/` — Core
 
 | File | Purpose | Size |
-|------|---------|------|
+| ------ | --------- | ------ |
 | `main.py` | FastAPI app, 16 routers, lifespan, CORS, correlation IDs | 4.5 KB |
 | `auth.py` | Cookie sessions, CSRF, login/logout, lockout | 4.0 KB |
 | `config.py` | All env vars, directory preparation | 8.8 KB |
@@ -76,7 +77,7 @@
 ### `backend/app/api/` — API Routes (16 routers)
 
 | File | Purpose | Size |
-|------|---------|------|
+| ------ | --------- | ------ |
 | `auth.py` | Login, logout, session management | 10.1 KB |
 | `operators.py` | ADMIN operator management | 8.1 KB |
 | `audit.py` | Audit trail read endpoints | 2.1 KB |
@@ -97,7 +98,7 @@
 ### `backend/app/models/` — SQLAlchemy Models
 
 | File | Tables |
-|------|--------|
+| ------ | -------- |
 | `operator.py` | `operators` |
 | `operator_session.py` | `operator_sessions` |
 | `password_history.py` | `password_history` (append-only) |
@@ -118,7 +119,7 @@
 ### `backend/app/services/` — Business Logic
 
 | File | Purpose | Size |
-|------|---------|------|
+| ------ | --------- | ------ |
 | `test_management.py` | Test case CRUD, version snapshots, approval | 12.2 KB |
 | `automated_execution.py` | Worker, lease, retry, structured action engine | 26.7 KB |
 | `defect_service.py` | Duplicate detection, state machine transitions | 19.4 KB |
@@ -141,7 +142,7 @@
 ### `backend/app/repositories/`
 
 | File | Purpose |
-|------|---------|
+| ------ | --------- |
 | `operator_repository.py` | Operator DB queries |
 | `project_repository.py` | Project DB queries |
 | `run_repository.py` | Run lifecycle + interrupted recovery |
@@ -150,7 +151,7 @@
 ### `backend/app/cli/` — CLI Commands
 
 | File | Command |
-|------|---------|
+| ------ | --------- |
 | `create_operator.py` | Create local operator interactively |
 | `maintenance.py` | Backup, restore, retention, cleanup |
 | `migrate.py` | Run schema migrations |
@@ -164,18 +165,18 @@
 ### `frontend/src/pages/` — Pages (6)
 
 | File | Purpose | Notes |
-|------|---------|-------|
+| ------ | --------- | ------- |
 | `HomePage.tsx` | Marketing landing page | Hero, Features, FAQ, CTA |
 | `ProductsPage.tsx` | Product testing scope | Loads live from API, 6 product cards |
-| `TestRunsPage.tsx` | Test runs listing | |
+| `TestRunsPage.tsx` | Test runs listing |  |
 | `AgentsPage.tsx` | AI agent workflow | Workflow steps + agent grid |
-| `ReportsPage.tsx` | Reports page | |
-| `SettingsPage.tsx` | Settings | |
+| `ReportsPage.tsx` | Reports page |  |
+| `SettingsPage.tsx` | Settings |  |
 
 ### `frontend/src/components/` — Components (21)
 
 | File | Purpose | Size |
-|------|---------|------|
+| ------ | --------- | ------ |
 | `TestManagementCore.tsx` | Full test management UI | 25.9 KB |
 | `ConnectionTargetsCore.tsx` | Target lifecycle UI | 17.7 KB |
 | `DefectsCore.tsx` | Defect tracker UI | 16.4 KB |
@@ -215,7 +216,7 @@
 ### `qa/tests/` — Playwright Spec Files (13 spec files)
 
 | Spec File | Stage | Coverage |
-|-----------|:---:|---------|
+| ----------- | :---: | --------- |
 | `auth/auth-rbac.spec.ts` | 5 | Login, RBAC, session, CSRF |
 | `auth/stage7-security.spec.ts` | 7 | Security reports, ADMIN controls |
 | `test-management/stage8-management.spec.ts` | 8 | Cases, suites, versions, approval |
@@ -235,7 +236,7 @@
 ### `qa/fixtures/` — Test Fixtures
 
 | File | Purpose |
-|------|---------|
+| ------ | --------- |
 | `authenticated.fixture.ts` | Auth setup for all tests |
 | `safe-mode.fixture.ts` | Safe mode enforcement |
 | `test-data.fixture.ts` | Test data helpers |
@@ -257,7 +258,7 @@
 ## 6. Docs — All Documents
 
 | File | Purpose | Size |
-|------|---------|------|
+| ------ | --------- | ------ |
 | `QUICK_START_GUIDE.md` | Setup, run, commands reference | 11.2 KB |
 | `SECURITY_AND_SAFETY.md` | Full security model | 10.2 KB |
 | `API_DOCUMENTATION.md` | API endpoints reference | 9.1 KB |
@@ -282,7 +283,7 @@
 ### `scripts/` — PowerShell + Python Scripts
 
 | Script | Purpose |
-|--------|---------|
+| -------- | --------- |
 | `start_backend.ps1` | Start FastAPI backend |
 | `start_frontend.ps1` | Start Vite frontend |
 | `start_local_system.ps1` | Start all services together |
@@ -315,6 +316,7 @@ Location: `release/stage14/`
 **18 release builds completed** (latest: `20260715T074059Z`)
 
 Each release bundle contains:
+
 - Full backend + frontend + qa + scripts + docs
 - `SHA256SUMS.txt` — integrity verification for all files
 - `release-manifest.json` — build metadata
@@ -327,6 +329,7 @@ Each release bundle contains:
 From `docs/FINAL_UAT_CHECKLIST.md`:
 
 ### ✅ PASS (Automated)
+
 - Password policy, history, version invalidation, RBAC, CSRF, audit-chain tests
 - Test management and creator-separated approval
 - Frozen-version manual execution
@@ -341,6 +344,7 @@ From `docs/FINAL_UAT_CHECKLIST.md`:
 - Responsive dashboard at 320/375/768/1024/1440 pixels
 
 ### ⏳ PENDING (Requires Real Targets / Manual)
+
 - Persistent ADMIN login (`active_admin_count = 0` — first ADMIN not created yet)
 - Forced password change with authorized persistent operator
 - Session management with persistent operators
@@ -353,7 +357,7 @@ From `docs/FINAL_UAT_CHECKLIST.md`:
 ## 10. Genuine Gaps Remaining
 
 | Gap | Details | Effort |
-|-----|---------|--------|
+| ----- | --------- | -------- |
 | **First ADMIN creation** | No operator bootstrapped yet. Run `scripts/create_local_operator.ps1` | 5 min |
 | **Real iFive target URL** | Connection targets exist but no real DEV/QA/STAGING URL configured | Config only |
 | **Ollama live wiring** | `local-ai/prompts/` and `local-ai/configs/ollama.json` exist. Backend HTTP call to Ollama not wired | Code work |
@@ -364,7 +368,7 @@ From `docs/FINAL_UAT_CHECKLIST.md`:
 
 ## Summary
 
-```
+```text
 Platform stages complete  : 14 / 14  ██████████████ 100%
 Release builds            : 18 builds in release/stage14/
 Backend API routes        : 16 routers covering all domains

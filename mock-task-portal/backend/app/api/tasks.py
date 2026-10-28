@@ -269,3 +269,20 @@ def record_qa_result(
     db.commit()
     db.refresh(task)
     return TaskOut.model_validate(task)
+
+
+# ─── DELETE /api/tasks/{task_id} ─────────────────────────────────────────────
+
+@router.delete('/{task_id}', status_code=status.HTTP_204_NO_CONTENT)
+def delete_task(
+    task_id: int,
+    ctx: AuthContext = Depends(get_auth_context),
+    db: Session = Depends(get_db),
+) -> None:
+    """Delete a task and all its history. SUPERADMIN only."""
+    ctx.require_role('SUPERADMIN')
+    task = _get_task_or_404(task_id, db)
+    db.query(TaskHistory).filter_by(task_id=task.id).delete()
+    db.delete(task)
+    db.commit()
+

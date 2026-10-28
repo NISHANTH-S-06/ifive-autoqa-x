@@ -15,7 +15,7 @@ class ProductCode(str, Enum):
 
 class ProjectCreate(BaseModel):
   name: str = Field(min_length=1, max_length=160)
-  product_code: ProductCode
+  product_code: str = Field(min_length=1, max_length=80)
   description: str | None = Field(default=None, max_length=500)
   base_url: str | None = Field(default=None, max_length=500)
   environment: str = 'local'

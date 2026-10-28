@@ -1,7 +1,8 @@
 # Kill All AutoQA Local Services (Ports 8000, 8001, 8002, 5173, 5174, 5175)
 $ErrorActionPreference = 'Continue'
 
-$ports = @(8000, 8001, 8002, 5173, 5174, 5175)
+$ports = @(8300, 3300, 8000, 8001, 8002, 5173, 5174, 5175)
+
 
 foreach ($port in $ports) {
     $connections = Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue

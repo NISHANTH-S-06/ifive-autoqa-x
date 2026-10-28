@@ -5,7 +5,7 @@
 All 9 pinned packages verified by direct import-count scan of `app/` and `tests/`:
 
 | Package | References found | Status |
-|---|---|---|
+| --- | --- | --- |
 | fastapi | 121 | USED |
 | uvicorn | 0 direct imports (CLI-only: `python -m uvicorn app.main:app`) | USED (correct — no import needed) |
 | sqlalchemy | 318 | USED |
@@ -24,7 +24,7 @@ not fabricating a clean bill of health for something not actually checked).
 ## Frontend (`frontend/package.json`)
 
 | Package | Status |
-|---|---|
+| --- | --- |
 | react, react-dom | USED (core) |
 | lucide-react | USED (icons throughout Sidebar/TopHeader/CommandPalette/pages) |
 | framer-motion | USED (added this session for Command Palette + Dashboard micro-interactions) |

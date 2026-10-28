@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { listTasks } from '../api';
+import { listTasks, deleteTask } from '../api';
 import type { Task } from '../types';
 import { StatusBadge, PriorityBadge, Loading, ErrorAlert, EmptyState } from '../components';
 import { fmtDate } from '../components';
+import { useAuth } from '../AuthContext';
 
 const ALL_STATUSES = [
   'CREATED','ASSIGNED','IN_PROGRESS','TESTING_L1','TESTING_L2',
@@ -16,6 +17,10 @@ export default function TaskListPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchParams, setSearchParams] = useSearchParams();
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const { user } = useAuth();
+  const isSuperAdmin = user?.role === 'SUPERADMIN';
 
   const statusFilter = searchParams.get('status') ?? '';
   const projectFilter = searchParams.get('project') ?? '';
@@ -40,6 +45,20 @@ export default function TaskListPage() {
     if (value) params.set(key, value);
     else params.delete(key);
     setSearchParams(params);
+  }
+
+  async function handleDelete(taskId: number) {
+    setDeleteLoading(true);
+    setError('');
+    try {
+      await deleteTask(taskId);
+      setTasks(prev => prev.filter(t => t.id !== taskId));
+      setConfirmDeleteId(null);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Delete failed');
+    } finally {
+      setDeleteLoading(false);
+    }
   }
 
   return (
@@ -122,10 +141,39 @@ export default function TaskListPage() {
                       <td style={{ color: 'var(--text-muted)', fontSize: 12 }}>{t.assigned_tester ?? '—'}</td>
                       <td style={{ color: 'var(--text-muted)', fontSize: 12 }}>{t.target_date ?? '—'}</td>
                       <td style={{ textAlign: 'center', fontSize: 12 }}>{t.revision}</td>
-                      <td>
+                      <td style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'nowrap' }}>
                         <Link to={`/tasks/${t.id}`} className="btn btn-ghost btn-sm">
                           View
                         </Link>
+                        {isSuperAdmin && (
+                          confirmDeleteId === t.id ? (
+                            <span style={{ display: 'flex', gap: 4 }}>
+                              <button
+                                id={`btn-confirm-delete-${t.id}`}
+                                className="btn btn-danger btn-sm"
+                                disabled={deleteLoading}
+                                onClick={() => handleDelete(t.id)}
+                              >
+                                {deleteLoading ? '…' : 'Confirm'}
+                              </button>
+                              <button
+                                className="btn btn-ghost btn-sm"
+                                onClick={() => setConfirmDeleteId(null)}
+                              >
+                                Cancel
+                              </button>
+                            </span>
+                          ) : (
+                            <button
+                              id={`btn-delete-${t.id}`}
+                              className="btn btn-ghost btn-sm"
+                              style={{ color: 'var(--danger)' }}
+                              onClick={() => setConfirmDeleteId(t.id)}
+                            >
+                              🗑
+                            </button>
+                          )
+                        )}
                       </td>
                     </tr>
                   ))}

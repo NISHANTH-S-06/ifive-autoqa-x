@@ -1,8 +1,9 @@
 import { test, expect } from '@playwright/test';
 
-const AUTOQA_URL = 'http://127.0.0.1:8000';
+const AUTOQA_URL = process.env.AUTOQA_URL || (process.env.BACKEND_PORT ? `http://127.0.0.1:${process.env.BACKEND_PORT}` : 'http://127.0.0.1:8300');
 const MOCK_PORTAL_URL = 'http://127.0.0.1:8001';
-const FRONTEND_URL = 'http://127.0.0.1:5173';
+const FRONTEND_URL = process.env.FRONTEND_URL || (process.env.FRONTEND_PORT ? `http://127.0.0.1:${process.env.FRONTEND_PORT}` : 'http://127.0.0.1:3300');
+
 
 test.describe('Phase 6 — Advanced QA Validation Pack Real Acceptance Suite', () => {
   test.describe.configure({ mode: 'serial' });
@@ -78,7 +79,8 @@ test.describe('Phase 6 — Advanced QA Validation Pack Real Acceptance Suite', (
     // Add API def
     const apiRes = await request.post(`${AUTOQA_URL}/api/projects/${projectId}/advanced-profiles/${profileId}/api-definitions`, {
       headers: adminHeaders,
-      data: { name: 'Health Check API', method: 'GET', path: 'http://127.0.0.1:8000/api/health', expected_status: 200 }
+      data: { name: 'Health Check API', method: 'GET', path: `${AUTOQA_URL}/api/health`, expected_status: 200 }
+
     });
     expect(apiRes.ok()).toBeTruthy();
 
@@ -135,7 +137,8 @@ test.describe('Phase 6 — Advanced QA Validation Pack Real Acceptance Suite', (
     // Expect status 404 on health endpoint -> should fail
     await request.post(`${AUTOQA_URL}/api/projects/${projectId}/advanced-profiles/${profile.id}/api-definitions`, {
       headers: adminHeaders,
-      data: { name: 'Status Mismatch Check', method: 'GET', path: 'http://127.0.0.1:8000/api/health', expected_status: 404 }
+      data: { name: 'Status Mismatch Check', method: 'GET', path: `${AUTOQA_URL}/api/health`, expected_status: 404 }
+
     });
 
     const runRes = await request.post(`${AUTOQA_URL}/api/projects/${projectId}/advanced-runs/trigger`, {
@@ -317,7 +320,7 @@ test.describe('Phase 6 — Advanced QA Validation Pack Real Acceptance Suite', (
       headers: adminHeaders,
       data: {
         test_plan_id: planId, validation_profile_id: profileId,
-        network_errors: [{ url: 'http://127.0.0.1:8000/api/invalid', status: 404, expected_negative: true }]
+        network_errors: [{ url: `${AUTOQA_URL}/api/invalid`, status: 404, expected_negative: true }]
       }
     });
     const run = await runRes.json();
@@ -330,9 +333,10 @@ test.describe('Phase 6 — Advanced QA Validation Pack Real Acceptance Suite', (
       headers: adminHeaders,
       data: {
         test_plan_id: planId, validation_profile_id: profileId,
-        network_errors: [{ url: 'http://127.0.0.1:8000/api/server-error', status: 500 }]
+        network_errors: [{ url: `${AUTOQA_URL}/api/server-error`, status: 500 }]
       }
     });
+
     const run = await runRes.json();
     expect(run.status).toBe('FAIL');
   });

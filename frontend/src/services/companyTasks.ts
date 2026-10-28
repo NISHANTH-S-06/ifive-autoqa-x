@@ -51,6 +51,9 @@ export const previewAutoQAPlan = (id: number) =>
 export const approveAndRunAutoQA = (id: number, steps?: AutoQAPreviewStep[]) =>
   apiMutation<CompanyTask>('POST', `/api/company-tasks/${id}/approve-autoqa`, { steps });
 
+export const autoRunFullWorkflow = (id: number) =>
+  apiMutation<CompanyTask>('POST', `/api/company-tasks/${id}/auto-run-full-workflow`, {});
+
 export const getTaskRunStatus = (id: number) =>
   apiGet<AutoQARunStatusRead>(`/api/company-tasks/${id}/run-status`);
 

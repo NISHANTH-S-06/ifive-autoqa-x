@@ -29,6 +29,7 @@ Implements `PerformanceValidator` for timing metric evaluation.
 ---
 
 ## Verification Commands
+
 ```powershell
 cd d:\AUTO_QA_TESTING\backend
 .\.venv\Scripts\pytest tests/test_phase6_advanced_validation.py -k "test_accessibility_validator or test_performance_validator" -v

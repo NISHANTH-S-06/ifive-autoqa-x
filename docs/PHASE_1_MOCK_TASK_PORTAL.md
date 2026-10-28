@@ -9,7 +9,7 @@
 
 ## Architecture
 
-```
+```text
 mock-task-portal/
 ├── backend/                        # FastAPI + SQLite + Alembic
 │   ├── alembic/                    # Schema migrations
@@ -75,7 +75,7 @@ mock-task-portal/
 ### Tables
 
 | Table | Purpose |
-|---|---|
+| --- | --- |
 | `users` | Demo user accounts (username, role, password_hash) |
 | `user_sessions` | Bearer token sessions (TTL=8h) |
 | `tasks` | Task records with all required fields |
@@ -96,7 +96,7 @@ All 24 required fields are implemented:
 ## Roles
 
 | Role | Username | Password |
-|---|---|---|
+| --- | --- | --- |
 | SUPERADMIN | admin | Admin@Demo123 |
 | DEVELOPER | dev1 | Dev@Demo123 |
 | TESTER | tester1 | Test@Demo123 |
@@ -106,7 +106,7 @@ All 24 required fields are implemented:
 ### Permission Rules
 
 | Action | SUPERADMIN | DEVELOPER | TESTER | DELIVERY | VIEWER |
-|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- |
 | Create task | ✅ | ❌ | ❌ | ❌ | ❌ |
 | View all tasks | ✅ | own only | L2+ only | DELIVERY only | ✅ |
 | Assign task | ✅ | ❌ | ❌ | ❌ | ❌ |
@@ -122,7 +122,7 @@ All 24 required fields are implemented:
 
 ## Status Lifecycle
 
-```
+```text
 CREATED
   └─ ASSIGNED                         (SUPERADMIN)
        └─ IN_PROGRESS                 (DEVELOPER)
@@ -142,7 +142,7 @@ CREATED
 ## APIs Implemented
 
 | Method | Path | Role | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | POST | `/api/auth/login` | public | Login |
 | POST | `/api/auth/logout` | any | Logout |
 | GET | `/api/auth/me` | any | Current user |
@@ -193,7 +193,7 @@ CREATED
 ## UI Pages
 
 | # | Page | Route | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | 1 | Login | `/login` | Auth with demo credentials panel |
 | 2 | Dashboard | `/` | Stats grid by status, clickable filters |
 | 3 | Create Task | `/tasks/create` | Full task creation form |
@@ -251,10 +251,10 @@ npx playwright test
 
 ### Backend Tests — pytest
 
-**Result: 23 passed, 0 failed**
+### Result: 23 passed, 0 failed
 
 | # | Test | Status |
-|---|---|---|
+| --- | --- | --- |
 | 1 | test_create_task_success | ✅ PASSED |
 | 2 | test_create_task_duplicate_code_rejected | ✅ PASSED |
 | 3 | test_create_task_only_superadmin | ✅ PASSED |
@@ -286,10 +286,10 @@ Output: `dist/index.html`, `dist/assets/index.css`, `dist/assets/index.js`
 
 ### Playwright E2E Tests
 
-**Result: 8 passed, 0 failed**
+### Result: 8 passed, 0 failed
 
 | # | Test | Status |
-|---|---|---|
+| --- | --- | --- |
 | 1 | Login page renders and login succeeds | ✅ PASSED |
 | 2 | Login with wrong password shows error | ✅ PASSED |
 | 3 | Create task via UI | ✅ PASSED |
@@ -324,7 +324,7 @@ Output: `dist/index.html`, `dist/assets/index.css`, `dist/assets/index.js`
 ## Phase 1 Acceptance Matrix
 
 | Criterion | Status |
-|---|---|
+| --- | --- |
 | Mock Task Portal starts locally | ✅ VERIFIED |
 | Clean Alembic migration succeeds | ✅ VERIFIED |
 | Task can be created and assigned | ✅ VERIFIED |
@@ -347,7 +347,7 @@ Output: `dist/index.html`, `dist/assets/index.css`, `dist/assets/index.js`
 Seeded automatically on first startup:
 
 | Entity | Details |
-|---|---|
+| --- | --- |
 | admin (SUPERADMIN) | Admin@Demo123 |
 | dev1 (DEVELOPER) | Dev@Demo123 |
 | tester1 (TESTER) | Test@Demo123 |

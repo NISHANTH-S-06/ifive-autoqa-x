@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   getTask, changeStatus, addDeveloperNotes, addReworkRemarks,
-  recordQAResult, getTaskHistory,
+  recordQAResult, getTaskHistory, deleteTask,
 } from '../api';
 import type { Task, HistoryRecord, QAResult } from '../types';
 import { StatusBadge, PriorityBadge, DetailField, Loading, ErrorAlert, SuccessAlert } from '../components';
@@ -21,7 +21,7 @@ export default function TaskDetailPage() {
   const [success, setSuccess] = useState('');
 
   // Action modal state
-  const [modal, setModal] = useState<'status' | 'notes' | 'remarks' | 'qa' | null>(null);
+  const [modal, setModal] = useState<'status' | 'notes' | 'remarks' | 'qa' | 'delete' | null>(null);
   const [statusTarget, setStatusTarget] = useState('');
   const [reason, setReason] = useState('');
   const [notesText, setNotesText] = useState('');
@@ -61,6 +61,10 @@ export default function TaskDetailPage() {
         const t = await recordQAResult(id, qaResult, reason || undefined);
         setTask(t);
         setSuccess(`QA result recorded: ${qaResult}`);
+      } else if (modal === 'delete') {
+        await deleteTask(id);
+        navigate('/tasks');
+        return;
       }
       setModal(null);
       await loadTask();
@@ -86,6 +90,7 @@ export default function TaskDetailPage() {
   const canAddNotes = (role === 'DEVELOPER' && task.assigned_developer === user?.username) || role === 'SUPERADMIN';
   const canAddRemarks = role === 'TESTER' || role === 'SUPERADMIN';
   const canQA = (role === 'TESTER' || role === 'SUPERADMIN') && ['TESTING_L2', 'QA_RUNNING'].includes(task.status);
+  const canDelete = role === 'SUPERADMIN';
 
   return (
     <>
@@ -138,6 +143,16 @@ export default function TaskDetailPage() {
             <Link to={`/tasks/${task.id}/history`} className="btn btn-ghost btn-sm">
               Status History
             </Link>
+            {canDelete && (
+              <button
+                id="btn-delete-task"
+                className="btn btn-danger btn-sm"
+                style={{ marginLeft: 'auto' }}
+                onClick={() => setModal('delete')}
+              >
+                🗑 Delete Task
+              </button>
+            )}
           </div>
         </div>
 
@@ -322,6 +337,36 @@ export default function TaskDetailPage() {
               <button id="modal-confirm-qa" className="btn btn-primary"
                 disabled={actionLoading} onClick={runAction}>
                 {actionLoading ? 'Saving…' : `Record ${qaResult}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {modal === 'delete' && (
+        <div className="modal-overlay" onClick={() => setModal(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <h2 style={{ color: 'var(--danger)' }}>⚠ Delete Task</h2>
+            <p style={{ marginBottom: 16, color: 'var(--text-muted)', fontSize: 14 }}>
+              Are you sure you want to permanently delete{' '}
+              <strong style={{ color: 'var(--text)' }}>{task.title}</strong>{' '}
+              (<code>{task.task_code}</code>)?
+              <br />
+              <span style={{ color: 'var(--danger)', fontWeight: 600 }}>
+                This action cannot be undone. All status history will also be deleted.
+              </span>
+            </p>
+            <div className="modal-actions">
+              <button className="btn btn-ghost" onClick={() => setModal(null)} disabled={actionLoading}>
+                Cancel
+              </button>
+              <button
+                id="btn-confirm-delete"
+                className="btn btn-danger"
+                disabled={actionLoading}
+                onClick={runAction}
+              >
+                {actionLoading ? 'Deleting…' : 'Yes, Delete Task'}
               </button>
             </div>
           </div>

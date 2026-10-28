@@ -2,12 +2,12 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ListTodo, RefreshCw, CheckCircle2, ArrowRight, X,
-  Link2, FileText, ClipboardCheck, AlertCircle, Clock, User
+  Link2, FileText, ClipboardCheck, AlertCircle, Clock, User, Trash2
 } from 'lucide-react';
 import { useAuth } from '../authContext';
 import type { CompanyTaskListItem, CompanyTask, TaskStatus } from '../types/companyTask';
 import { TASK_STATUS_LABELS, TASK_STATUS_COLORS, TASK_PRIORITY_COLORS, TASK_STATUS_PIPELINE } from '../types/companyTask';
-import { getMyTasks, getTask, transitionStatus } from '../services/companyTasks';
+import { getMyTasks, getTask, transitionStatus, deleteTask } from '../services/companyTasks';
 
 function StatusChip({ status }: { status: TaskStatus }) {
   const color = TASK_STATUS_COLORS[status];
@@ -94,16 +94,22 @@ function TaskDetailPanel({
   taskId,
   onClose,
   onUpdated,
+  onNavigate,
 }: {
   taskId: number;
   onClose: () => void;
   onUpdated: () => void;
+  onNavigate?: (module: any) => void;
 }) {
+  const { operator } = useAuth();
+  const isAdmin = operator?.role === 'ADMIN';
   const [task, setTask] = useState<CompanyTask | null>(null);
   const [loading, setLoading] = useState(true);
   const [transitioning, setTransitioning] = useState(false);
   const [error, setError] = useState('');
   const [confirmL2, setConfirmL2] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     void getTask(taskId).then(setTask).catch((e) => setError(e.message)).finally(() => setLoading(false));
@@ -135,6 +141,20 @@ function TaskDetailPanel({
     } finally {
       setTransitioning(false);
       setConfirmL2(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!task) return;
+    setDeleting(true);
+    try {
+      await deleteTask(task.id);
+      onUpdated();
+      onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to delete task.');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -336,10 +356,22 @@ function TaskDetailPanel({
               )}
 
               {['TESTING_L2', 'TEST_APPROVED', 'AUTOQA_RUNNING'].includes(task.status) && (
-                <div style={{ background: '#3b82f615', border: '1px solid #3b82f640', borderRadius: 'var(--radius-md)', padding: '0.75rem', textAlign: 'center' }}>
+                <div style={{ background: '#3b82f615', border: '1px solid #3b82f640', borderRadius: 'var(--radius-md)', padding: '0.75rem', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'center' }}>
                   <p style={{ fontSize: '0.8rem', color: 'var(--text-main)' }}>
-                    Task is currently in testing workflow. You will be notified if it fails.
+                    Task is currently in testing workflow.
                   </p>
+                  {onNavigate && (
+                    <button
+                      className="btn btn-primary btn-sm"
+                      style={{ background: '#3b82f6', borderColor: '#3b82f6', fontSize: '0.78rem' }}
+                      onClick={() => {
+                        onClose();
+                        onNavigate('automated-runs');
+                      }}
+                    >
+                      ⚡ View Live Automated Run Execution
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -371,6 +403,29 @@ function TaskDetailPanel({
                   </button>
                 </div>
               )}
+
+              {isAdmin && !confirmDelete && (
+                <button
+                  className="btn btn-ghost btn-sm"
+                  style={{ width: '100%', color: '#ef4444', border: '1px solid #ef444440', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', marginTop: '0.5rem' }}
+                  onClick={() => setConfirmDelete(true)}
+                >
+                  <Trash2 size={14} /> Delete Task
+                </button>
+              )}
+              {isAdmin && confirmDelete && (
+                <div style={{ background: '#ef444415', border: '1px solid #ef444440', borderRadius: 'var(--radius-md)', padding: '0.75rem', marginTop: '0.5rem' }}>
+                  <p style={{ fontSize: '0.8rem', fontWeight: 600, color: '#ef4444', marginBottom: '0.5rem' }}>
+                    Are you sure you want to delete this task?
+                  </p>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button className="btn btn-secondary btn-sm" onClick={() => setConfirmDelete(false)} disabled={deleting}>Cancel</button>
+                    <button className="btn btn-sm" style={{ background: '#ef4444', color: '#fff', border: 'none', flex: 1 }} onClick={handleDelete} disabled={deleting}>
+                      {deleting ? 'Deleting...' : 'Confirm Delete'}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -380,7 +435,7 @@ function TaskDetailPanel({
 }
 
 // ── Main Page ──────────────────────────────────────────────────────────────
-export function MyTasksPage() {
+export function MyTasksPage({ onNavigate }: { onNavigate?: (module: any) => void } = {}) {
   const { operator } = useAuth();
   const [tasks, setTasks] = useState<CompanyTaskListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -556,6 +611,7 @@ export function MyTasksPage() {
             taskId={selectedId}
             onClose={() => setSelectedId(null)}
             onUpdated={load}
+            onNavigate={onNavigate}
           />
         )}
       </AnimatePresence>

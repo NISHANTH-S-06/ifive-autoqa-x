@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, Body
+from fastapi import APIRouter, Depends, Query, Body, HTTPException
 from sqlalchemy.orm import Session
 from typing import Dict, Any, List
 
@@ -43,3 +43,64 @@ def list_flows(
 ):
     service = ZeroCodeTestStudioService(db)
     return service.list_flows(project_id)
+
+
+@router.get('/flows/{flow_id}', summary='Get Single Test Flow')
+def get_flow(
+    flow_id: int,
+    context: AuthContext = Depends(get_auth_context),
+    db: Session = Depends(get_db),
+):
+    service = ZeroCodeTestStudioService(db)
+    flow = service.get_flow(flow_id)
+    if not flow:
+        raise HTTPException(status_code=404, detail='Flow not found')
+    return flow
+
+
+@router.post('/flows/{flow_id}/run', summary='Execute Zero-Code Test Flow')
+def run_flow(
+    flow_id: int,
+    context: AuthContext = Depends(get_auth_context),
+    db: Session = Depends(get_db),
+):
+    service = ZeroCodeTestStudioService(db)
+    return service.run_flow(flow_id)
+
+
+@router.post('/generate-flow', summary='Generate Test Flow from AI Prompt')
+def generate_flow(
+    prompt: str = Body(..., embed=True),
+    flow_type: str = Body('SCENARIO', embed=True),
+    context: AuthContext = Depends(get_auth_context),
+    db: Session = Depends(get_db),
+):
+    if not prompt or not prompt.strip():
+        raise HTTPException(status_code=422, detail='Prompt is required')
+    service = ZeroCodeTestStudioService(db)
+    return service.generate_flow_from_prompt(prompt, flow_type)
+
+
+@router.post('/flows/run-canvas', summary='Execute Unsaved Canvas Steps')
+def run_canvas_steps(
+    flow_steps: List[Dict[str, Any]] = Body([], embed=True),
+    flow_name: str = Body('Canvas Execution Flow', embed=True),
+    context: AuthContext = Depends(get_auth_context),
+    db: Session = Depends(get_db),
+):
+    service = ZeroCodeTestStudioService(db)
+    return service.run_canvas_steps(flow_steps, flow_name)
+
+
+@router.delete('/flows/{flow_id}', summary='Delete Test Flow')
+def delete_flow(
+    flow_id: int,
+    context: AuthContext = Depends(get_auth_context),
+    db: Session = Depends(get_db),
+):
+    service = ZeroCodeTestStudioService(db)
+    success = service.delete_flow(flow_id)
+    if not success:
+        raise HTTPException(status_code=404, detail='Flow not found')
+    return {'status': 'deleted', 'id': flow_id}
+

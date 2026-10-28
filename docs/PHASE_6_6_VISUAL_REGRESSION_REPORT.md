@@ -1,6 +1,7 @@
 # Phase 6.6 — Visual Regression & Layout Inspection Report
 
 ## Overview
+
 This report documents visual regression inspection and layout verification across all 13 modules of **iFive AutoQA X**.
 
 ---
@@ -28,6 +29,7 @@ This report documents visual regression inspection and layout verification acros
 ---
 
 ## 2. Layout & Theme Hardening Checks
+
 - **No Native Browser Select/Button Controls**: All modules consume custom `Button`, `Input`, `Select`, `FormField`, `DataTable`, `Modal`, `Drawer`, and `StatusBadge`.
 - **No White Inputs in Dark Mode**: Theme-aware tokens enforce dark background (`#0b0f17`), surface (`#131b2e`), and card borders (`#24304f`) in dark mode.
 - **No Overflow or Text Clipping**: Tables scroll cleanly inside container boundaries (`overflow-x: auto`), badges use text-overflow truncation (`text-overflow: ellipsis`), and grid layout adapts dynamically.

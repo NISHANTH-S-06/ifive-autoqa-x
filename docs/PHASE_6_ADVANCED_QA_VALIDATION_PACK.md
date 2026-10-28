@@ -12,6 +12,7 @@
 The Phase 6 Advanced QA Validation Pack equips iFive AutoQA with multi-layered, production-grade validation capabilities beyond basic Playwright DOM automation. It enables QA engineers to attach multi-tier validation profiles (`AdvancedValidationProfile`) to test plans and automated runs.
 
 ### Key Validation Engines
+
 1. **API Validation Engine**: Performs HTTP GET/POST checks against approved target origins, verifying status codes, expected JSON schemas, header templates, and JSONPath assertions.
 2. **Read-Only Database Validation Engine**: Executes read-only SQL queries (`SELECT`, `WITH`) against approved local SQLite database connection profiles (`backend/data/autoqa.db`, `demo_product`, `mock_task_portal`) with strict read-only AST safety validation.
 3. **Accessibility Validation Engine**: Scans DOM trees against WCAG 2.1 AA rules and severity thresholds (`critical`, `serious`, `moderate`).
@@ -22,6 +23,7 @@ The Phase 6 Advanced QA Validation Pack equips iFive AutoQA with multi-layered, 
 ---
 
 ## Canonical Database Clarification
+
 - **Canonical SQLite DB Location**: `backend/data/autoqa.db`
 - **Correction**: Resolved connection profile map pointing to `data/autoqa.db` by explicitly mapping `autoqa` to `backend/data/autoqa.db`.
 

@@ -7,8 +7,8 @@ def test_project_crud_and_validation(client, project_payload):
 
   duplicate = client.post('/api/projects', json=project_payload)
   assert duplicate.status_code == 409
-  invalid = client.post('/api/projects', json={**project_payload, 'name': 'Invalid', 'product_code': 'OTHER'})
-  assert invalid.status_code == 422
+  invalid = client.post('/api/projects', json={**project_payload, 'name': 'Invalid', 'environment': 'INVALID_ENV'})
+  assert invalid.status_code == 400
 
 
 def test_project_404(client):

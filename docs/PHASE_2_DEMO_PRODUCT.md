@@ -9,7 +9,7 @@
 
 ## Architecture
 
-```
+```text
 demo-product/
 ├── backend/                        # FastAPI + SQLite + Alembic
 │   ├── alembic/                    # Schema migrations
@@ -94,7 +94,7 @@ demo-product/
 Local fixture credentials only — passwords stored as SHA-256 hashes with salt.
 
 | Username | Password | Role | Access Scope |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `demo_admin` | `Admin@Demo123` | `DEMO_ADMIN` | Full access + Bug Toggles management |
 | `demo_hr_user` | `Hr@Demo123` | `HR_USER` | Dashboard, Employee List, Create Employee, Details |
 | `demo_inventory_user` | `Inv@Demo123` | `INVENTORY_USER` | Dashboard, Product List, Stock Count Reconciliation |
@@ -105,7 +105,7 @@ Local fixture credentials only — passwords stored as SHA-256 hashes with salt.
 ## Required Routes and APIs
 
 | Route | Method | Endpoint | Role Access | Purpose |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | `/login` | POST | `/api/auth/login` | Public | Demo user login |
 | `/login` | POST | `/api/auth/logout` | Authenticated | Revoke session |
 | — | GET | `/api/auth/me` | Authenticated | Current user profile |
@@ -137,7 +137,7 @@ Managed via `/demo-settings` by `demo_admin`:
 
 ### 1. Backend Pytest Suite
 
-**Result: 21 passed, 0 failed**
+### Result: 21 passed, 0 failed
 
 - `test_auth.py`: 4 passed (login success, invalid pass, login_failure_mode 503, auth me)
 - `test_employees.py`: 6 passed (create success, invalid email, duplicate email 409, role restriction 403, save failure 500, table refresh failure)
@@ -147,11 +147,11 @@ Managed via `/demo-settings` by `demo_admin`:
 
 ### 2. Frontend Build (Vite + TypeScript)
 
-**Result: ✅ Build succeeded — 35 modules transformed, 0 TypeScript errors.**
+### Result: ✅ Build succeeded — 35 modules transformed, 0 TypeScript errors.
 
 ### 3. Playwright E2E Browser Suite
 
-**Result: 11 passed, 0 failed**
+### Result: 11 passed, 0 failed
 
 1. Login and dashboard — ✅ PASSED
 2. Create employee PASS flow — ✅ PASSED
@@ -205,7 +205,7 @@ npx playwright test
 ## Phase 2 Acceptance Matrix
 
 | Criterion | Status |
-|---|---|
+| --- | --- |
 | Demo Product starts locally | **VERIFIED** |
 | Alembic clean migration succeeds | **VERIFIED** |
 | Seed data loads safely & idempotently | **VERIFIED** |

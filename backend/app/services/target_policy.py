@@ -180,7 +180,9 @@ def resolve_host(host: str, port: int, environment: str) -> list[str]:
 
 def check_probe_allowed(probe_path: str, allowed_paths: list[str]) -> str:
   normalized = validate_probe_paths([probe_path])[0]
-  if normalized not in allowed_paths:
+  if '*' in allowed_paths or '/' in allowed_paths or '/*' in allowed_paths:
+    return normalized
+  if not any(normalized == p or normalized.startswith(p if p.endswith('/') else p + '/') for p in allowed_paths):
     raise HTTPException(status_code=403, detail='Probe path is not approved for this target.')
   return normalized
 

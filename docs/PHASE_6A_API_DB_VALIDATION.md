@@ -19,6 +19,7 @@ Implements `ApiValidator` for HTTP status code verification, JSON schema complia
 Implements `DatabaseValidator` for direct SQL queries against local SQLite database connection profiles.
 
 ### Connection Profile Mappings
+
 ```python
 CONNECTION_PROFILE_MAP = {
     "autoqa": "backend/data/autoqa.db",
@@ -28,6 +29,7 @@ CONNECTION_PROFILE_MAP = {
 ```
 
 ### SQL Safety Parser (`is_sql_read_only`)
+
 - **Allowed Keywords**: Only `SELECT` or `WITH` queries.
 - **Forbidden Mutating Keywords**: `INSERT`, `UPDATE`, `DELETE`, `DROP`, `ALTER`, `CREATE`, `REPLACE`, `TRUNCATE`, `ATTACH`, `DETACH`, `VACUUM`, `REINDEX`, `BEGIN`, `COMMIT`, `ROLLBACK`.
 - **Multi-statement & Comment Protection**: Blocks semi-colon multi-statement queries and SQL comments (`--`, `/*`).
@@ -36,6 +38,7 @@ CONNECTION_PROFILE_MAP = {
 ---
 
 ## Verification Commands
+
 ```powershell
 cd d:\AUTO_QA_TESTING\backend
 .\.venv\Scripts\pytest tests/test_phase6_advanced_validation.py -k "test_api_validator or test_db_validator" -v

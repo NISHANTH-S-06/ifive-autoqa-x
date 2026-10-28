@@ -11,6 +11,7 @@ Two different auth approaches are used, and this script keeps them separate:
   mocked-auth fixture `qa/fixtures/authenticated.fixture.ts`, which fabricates an
   in-memory ADMIN session for the browser only. It never creates a real operator,
   never touches the real database, and never involves a real password.
+
 - **Human-recorded video** needs a real logged-in operator on screen for each of
   the four roles. The mocked fixture only covers one role (ADMIN) inside automated
   tests, so it cannot be reused for a role-differentiated recording. A persistent
@@ -36,7 +37,7 @@ iFive ERP/HRMS/CRM/IIoT/Integration URL is opened, searched for, or referenced.
 ## Chapter 1 — Introduction, Architecture, Startup
 
 | # | Role | Screen / Command | Action & Data | Expected Result | Voice-over (English) | Presenter Note (Tanglish) | Security Note | Duration |
-|---|------|-------------------|----------------|------------------|------------------------|-----------------------------|----------------|----------|
+| --- | ------ | ------------------- | ---------------- | ------------------ | ------------------------ | ----------------------------- | ---------------- | ---------- |
 | 1 | Presenter | Slide / terminal | Introduce iFive AutoQA as a local-first QA platform for iFive products. | Title slide shown. | "This is iFive AutoQA, a local-first quality engineering platform. Everything you see today runs on this machine only." | "Intro slide caption panni, project name sollunga." | No real target or credential is shown at this stage. | 0:30 |
 | 2 | Presenter | `ARCHITECTURE.md` / diagram | Summarize stack: React+Vite+TypeScript frontend, FastAPI+Python backend, SQLite, Playwright Test for QA. | Architecture diagram shown. | "The stack is React on the frontend, FastAPI on the backend, and SQLite for storage, with Playwright driving automated checks." | "Architecture diagram screen la vச்சு summary பண்ணுங்க." | Mention that AI assistance is design material only in this release; no AI runtime is installed. | 0:45 |
 | 3 | Presenter | PowerShell | `cd D:\AUTO_QA_TESTING` then `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run_migrations.ps1` | Console prints migration success, no errors. | "First we apply local database migrations." | "Command run pannala, screen la scroll pannunga, password ethuvum illa." | No credentials required; script only runs local schema migrations. | 0:30 |
@@ -46,7 +47,7 @@ iFive ERP/HRMS/CRM/IIoT/Integration URL is opened, searched for, or referenced.
 ## Chapter 2 — Authentication, Roles, Security
 
 | # | Role | Screen | Action & Data | Expected Result | Voice-over | Presenter Note (Tanglish) | Security Note | Duration |
-|---|------|--------|----------------|------------------|-------------|-----------------------------|----------------|----------|
+| --- | ------ | -------- | ---------------- | ------------------ | ------------- | ----------------------------- | ---------------- | ---------- |
 | 6 | Presenter | Login screen (`App.tsx`) | Explain "Local Operator Login" form: Username, Password, Sign In button. No default credentials exist. | Login form shown, empty fields. | "There are no default accounts in AutoQA. Every operator is created explicitly and privately." | "Login screen kaamichu, default password illa nu sollunga." | Never type a real password on camera; this scene shows the empty form only. | 0:30 |
 | 7 | ADMIN (presenter, off-screen) | PowerShell | Pause recording. Run `scripts\create_local_operator.ps1` four times to privately create four **temporary** demo operators: one ADMIN, one TESTER, one APPROVER, one VIEWER. Resume recording after. | Four temporary operators exist locally; none of their usernames/passwords appear on screen or in this document. | "Off camera, we created four temporary operators — one for each role — using the official interactive bootstrap script." | "Idha recording la kaatamatom — pause pannitu private ah operator create pannunga." | Password entry is fully off-screen; this is the only supported way to create a persistent operator. | 1:00 |
 | 8 | ADMIN | Local Administration (`#administration`) | Log in as the temporary ADMIN. Open Local Administration. Point out Operators panel, "Create Operator" form, Audit Log, "Verify Audit Integrity" button, Operator Security table (Reset / Sessions / Revoke). | Security summary grid shows Active Operators, Locked Operators, Password Change Required, Active Sessions, Failed Logins, Audit Integrity: Valid. | "As ADMIN, this is the security control center — operator management and an append-only audit chain." | "ADMIN login aiduchu, security summary numbers sollunga." | Do not open the temporary ADMIN's own row detail beyond what is needed; no password/hash is ever shown. | 1:00 |

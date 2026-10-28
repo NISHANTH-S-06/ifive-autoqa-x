@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const baseURL = process.env.AUTOQA_QA_BASE_URL ?? 'http://127.0.0.1:5173';
+const baseURL = process.env.AUTOQA_QA_BASE_URL ?? (process.env.FRONTEND_PORT ? `http://127.0.0.1:${process.env.FRONTEND_PORT}` : 'http://127.0.0.1:3300');
+
 const runOutput = process.env.AUTOQA_OUTPUT_DIR;
 const htmlOutput = process.env.PLAYWRIGHT_HTML_OUTPUT_DIR ?? 'reports/html';
 const jsonOutput = process.env.PLAYWRIGHT_JSON_OUTPUT_NAME ?? 'reports/logs/results.json';

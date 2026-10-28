@@ -3,7 +3,8 @@ import { createReadStream, existsSync, statSync } from 'node:fs';
 import { extname, join, normalize, resolve } from 'node:path';
 
 const root = resolve('../frontend/dist');
-const port = Number(process.env.AUTOQA_STATIC_PORT ?? 5173);
+const port = Number(process.env.FRONTEND_PORT ?? process.env.AUTOQA_STATIC_PORT ?? 3300);
+
 const host = '127.0.0.1';
 const types = new Map([
   ['.html', 'text/html; charset=utf-8'],

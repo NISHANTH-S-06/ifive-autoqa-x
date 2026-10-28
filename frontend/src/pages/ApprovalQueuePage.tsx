@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PageHeader } from '../components/layout/PageHeader';
-import { getPendingApproval, approveAndRunAutoQA, getTask, previewAutoQAPlan } from '../services/companyTasks';
+import { getPendingApproval, approveAndRunAutoQA, getTask, previewAutoQAPlan, transitionStatus } from '../services/companyTasks';
 import type { CompanyTaskListItem, CompanyTask, AutoQAPreviewStep } from '../types/companyTask';
 import { TASK_STATUS_COLORS, TASK_STATUS_LABELS, TASK_PRIORITY_COLORS, TASK_STATUS_PIPELINE } from '../types/companyTask';
 import { useAuth } from '../authContext';
@@ -55,10 +55,12 @@ function ReviewDrawer({
   taskId,
   onClose,
   onApproved,
+  onNavigate,
 }: {
   taskId: number;
   onClose: () => void;
   onApproved: () => void;
+  onNavigate?: (module: any) => void;
 }) {
   const [task, setTask] = useState<CompanyTask | null>(null);
   const [loading, setLoading] = useState(true);
@@ -91,6 +93,9 @@ function ReviewDrawer({
       await approveAndRunAutoQA(taskId, previewPlan || undefined);
       onApproved();
       onClose();
+      if (onNavigate) {
+        onNavigate('automated-runs');
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to approve AutoQA.');
       setApproving(false);
@@ -221,10 +226,16 @@ function ReviewDrawer({
                     <button
                       className="btn btn-primary"
                       style={{ flex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: '#8b5cf6', borderColor: '#8b5cf6' }}
-                      onClick={handleGeneratePlan}
+                      onClick={async () => {
+                        if (task.status === 'DEVELOPER_COMPLETED') {
+                          await transitionStatus(task.id, { status: 'TESTING_L2' });
+                          setTask(prev => prev ? { ...prev, status: 'TESTING_L2' } : null);
+                        }
+                        await handleGeneratePlan();
+                      }}
                       disabled={generating || !task.target_url || !task.expected_flow}
                     >
-                      <Activity size={16} /> {generating ? 'Generating...' : 'Generate AutoQA Plan'}
+                      <Activity size={16} /> {generating ? 'Generating...' : task.status === 'DEVELOPER_COMPLETED' ? 'Pickup & Generate AutoQA Plan' : 'Generate AutoQA Plan'}
                     </button>
                   </div>
                 </>
@@ -338,7 +349,7 @@ function ReviewDrawer({
 
 
 // ── Main Page ──────────────────────────────────────────────────────────────
-export function ApprovalQueuePage() {
+export function ApprovalQueuePage({ onNavigate }: { onNavigate?: (module: any) => void } = {}) {
   const { operator } = useAuth();
   const currentUserId = operator?.id || 1;
 
@@ -471,18 +482,25 @@ export function ApprovalQueuePage() {
           </h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1rem' }}>
             {upcoming.map(task => (
-              <div
+              <motion.div
                 key={task.id}
+                whileHover={{ y: -2 }}
+                onClick={() => setSelectedId(task.id)}
                 style={{
                   background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderLeft: '4px solid #3b82f6',
-                  borderRadius: 'var(--radius-lg)', padding: '1rem', opacity: 0.7
+                  borderRadius: 'var(--radius-lg)', padding: '1rem', cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
                 }}
               >
-                <h4 style={{ fontSize: '0.9rem', fontWeight: 600, lineHeight: 1.3, marginBottom: '0.25rem' }}>{task.title}</h4>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                  <h4 style={{ fontSize: '0.9rem', fontWeight: 600, lineHeight: 1.3 }}>{task.title}</h4>
+                  <span style={{ fontSize: '0.68rem', padding: '0.15rem 0.5rem', borderRadius: '4px', background: '#3b82f615', color: '#3b82f6', fontWeight: 700 }}>
+                    Review Task
+                  </span>
+                </div>
                 <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                   Developer: {task.assigned_developer?.display_name || '—'}
                 </p>
-              </div>
+              </motion.div>
             ))}
           </div>
         </div>
@@ -494,6 +512,7 @@ export function ApprovalQueuePage() {
             taskId={selectedId}
             onClose={() => setSelectedId(null)}
             onApproved={load}
+            onNavigate={onNavigate}
           />
         )}
       </AnimatePresence>

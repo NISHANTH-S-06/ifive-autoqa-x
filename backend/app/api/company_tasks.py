@@ -119,6 +119,16 @@ def _get_task_or_404(task_id: int, db: Session) -> CompanyTask:
 # Endpoints
 # ---------------------------------------------------------------------------
 
+def _sync_task_run(task: CompanyTask, db: Session) -> None:
+  if task.status == 'AUTOQA_RUNNING' and task.autoqa_run_id:
+    run = db.get(AutomatedRun, task.autoqa_run_id)
+    if run and run.status in ('PASSED', 'FAILED', 'TIMED_OUT', 'BLOCKED', 'CANCELLED'):
+      from app.services.company_task_autoqa import update_task_from_run_result
+      update_task_from_run_result(task.id, run)
+      db.expire_all()
+      db.refresh(task)
+
+
 @router.get('', response_model=list[CompanyTaskListRead])
 def list_tasks(
   status: str | None = Query(default=None),
@@ -153,7 +163,10 @@ def list_tasks(
   if project_id:
     stmt = stmt.where(CompanyTask.project_id == project_id)
 
-  return list(db.scalars(stmt.order_by(CompanyTask.updated_at.desc())))
+  tasks = list(db.scalars(stmt.order_by(CompanyTask.updated_at.desc())))
+  for t in tasks:
+    _sync_task_run(t, db)
+  return tasks
 
 
 @router.get('/my-tasks', response_model=list[CompanyTaskListRead])
@@ -168,7 +181,10 @@ def get_my_tasks(
     .where(CompanyTask.status.not_in(['DELIVERY_COMPLETED', 'CLOSED']))
     .order_by(CompanyTask.updated_at.desc())
   )
-  return list(db.scalars(stmt))
+  tasks = list(db.scalars(stmt))
+  for t in tasks:
+    _sync_task_run(t, db)
+  return tasks
 
 
 @router.get('/pending-approval', response_model=list[CompanyTaskListRead])
@@ -192,6 +208,7 @@ def get_task(
   db: Session = Depends(get_db),
 ):
   task = _get_task_or_404(task_id, db)
+  _sync_task_run(task, db)
   role = context.operator.role
   if role == 'DEVELOPER' and task.assigned_developer_id != context.operator.id:
     raise HTTPException(status_code=403, detail='You can only view your own tasks.')
@@ -209,6 +226,7 @@ def get_task_run_status(
   Frontend polls this every 2s while task.status == AUTOQA_RUNNING.
   """
   task = _get_task_or_404(task_id, db)
+  _sync_task_run(task, db)
   run: AutomatedRun | None = None
   artifact_count = 0
 
@@ -442,6 +460,29 @@ def approve_and_trigger_autoqa(
   custom_steps = payload.steps if payload else None
   trigger_autoqa_for_task(db, task, context.operator.id, custom_steps)
 
+  db.refresh(task)
+  return task
+
+
+@router.post('/{task_id}/auto-run-full-workflow', response_model=CompanyTaskRead)
+def auto_run_full_workflow(
+  task_id: int,
+  context: AuthContext = Depends(require_csrf),
+  db: Session = Depends(get_db),
+):
+  """
+  One-click execution: automatically transitions task through
+  NEW/ASSIGNED/IN_PROGRESS/DEVELOPER_COMPLETED/TESTING_L2 and triggers AutoQA!
+  """
+  task = _get_task_or_404(task_id, db)
+  now = datetime.utcnow()
+  if not task.in_progress_at:
+    task.in_progress_at = now
+  task.developer_completed_at = now
+  task.status = 'TESTING_L2'
+  db.commit()
+
+  trigger_autoqa_for_task(db, task, context.operator.id)
   db.refresh(task)
   return task
 

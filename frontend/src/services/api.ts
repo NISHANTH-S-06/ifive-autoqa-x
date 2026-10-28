@@ -5,15 +5,25 @@ export const setCsrfToken = (value: string) => { csrfToken = value; };
 export const getCsrfToken = () => csrfToken;
 
 async function parseResponse<T>(response: Response): Promise<T> {
+  const text = await response.text();
+  let body: any = null;
+  try {
+    body = text ? JSON.parse(text) : null;
+  } catch {
+    if (!response.ok) {
+      throw new Error(`API request failed with status ${response.status}.`);
+    }
+    throw new Error('Server returned invalid JSON response.');
+  }
+
   if (!response.ok) {
-    const body = await response.json().catch(() => null) as { detail?: any } | null;
     let errorMsg = `API request failed (${response.status}).`;
     if (body?.detail) {
       errorMsg = typeof body.detail === 'string' ? body.detail : JSON.stringify(body.detail);
     }
     throw new Error(errorMsg);
   }
-  return response.json() as Promise<T>;
+  return body as T;
 }
 
 export async function apiGet<T>(path: string): Promise<T> {

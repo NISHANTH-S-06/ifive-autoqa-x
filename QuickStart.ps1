@@ -121,9 +121,9 @@ if ($Mode -eq "dev") {
     
     Write-Host ""
     Write-Host "Access Points:" -ForegroundColor Cyan
-    Write-Host "  Frontend:  http://localhost:5173" -ForegroundColor Green
-    Write-Host "  Backend:   http://127.0.0.1:8000" -ForegroundColor Green
-    Write-Host "  API Docs:  http://127.0.0.1:8000/docs" -ForegroundColor Green
+    Write-Host "  Frontend:  http://localhost:3300" -ForegroundColor Green
+    Write-Host "  Backend:   http://127.0.0.1:8300" -ForegroundColor Green
+    Write-Host "  API Docs:  http://127.0.0.1:8300/docs" -ForegroundColor Green
     Write-Host ""
     Write-Host "Starting services using start_all_fresh.ps1..." -ForegroundColor Yellow
     Write-Host ""
@@ -132,7 +132,8 @@ if ($Mode -eq "dev") {
     
     Write-Host ""
     Write-Host "[OK] All services started!" -ForegroundColor Green
-    Write-Host "Open browser and navigate to: http://localhost:5173" -ForegroundColor Yellow
+    Write-Host "Open browser and navigate to: http://localhost:3300" -ForegroundColor Yellow
+
     
 } elseif ($Mode -eq "prod") {
     Write-Header "Starting Production Mode"
@@ -157,6 +158,7 @@ Write-Host "Your project is ready to go!" -ForegroundColor Green
 Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Yellow
 Write-Host "1. Create a user account: .\scripts\create_local_operator.ps1" -ForegroundColor White
-Write-Host "2. Open: http://localhost:5173" -ForegroundColor White
+Write-Host "2. Open: http://localhost:3300" -ForegroundColor White
+
 Write-Host "3. Login with your credentials" -ForegroundColor White
 Write-Host ""

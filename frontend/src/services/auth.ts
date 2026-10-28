@@ -3,7 +3,13 @@ import type { AuditEvent, Operator, OperatorRole, OperatorSecurity, OperatorSess
 
 export async function login(username: string, password: string) {
   const response = await fetch(apiUrl('/api/auth/login'), { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) });
-  const body = await response.json() as { operator?: Operator; csrf_token?: string; detail?: string };
+  const text = await response.text();
+  let body: { operator?: Operator; csrf_token?: string; detail?: string } = {};
+  try {
+    body = JSON.parse(text);
+  } catch {
+    throw new Error(`Server returned invalid response (${response.status}). Ensure Vite dev server is proxying to backend.`);
+  }
   if (!response.ok || !body.operator || !body.csrf_token) throw new Error(body.detail ?? 'Login failed.');
   setCsrfToken(body.csrf_token); return body.operator;
 }

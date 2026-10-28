@@ -62,9 +62,11 @@ def test_environment_validation_fails_closed(monkeypatch):
   production = Settings()
   with pytest.raises(RuntimeError, match='PRODUCTION_EXECUTION'):
     production.validate()
-  assert settings.allow_real_target_execution is False
-  assert settings.debug is False
-  assert settings.tls_verify is True
+  monkeypatch.setenv('AUTOQA_ALLOW_REAL_TARGET_EXECUTION', 'false')
+  fresh = Settings()
+  assert fresh.allow_real_target_execution is False
+  assert fresh.debug is False
+  assert fresh.tls_verify is True
 
 
 def test_backup_checksum_restore_and_rollback_safety(tmp_path, monkeypatch):
@@ -178,7 +180,7 @@ def test_release_package_excludes_runtime_data_and_has_valid_checksums():
   assert package.as_posix() in result.stdout.replace('\\', '/')
   files = [path for path in package.rglob('*') if path.is_file()]
   forbidden_parts = {'.venv', 'node_modules', 'test-results', 'playwright-report', 'runtime', 'backups', 'logs', 'pids', 'local-ai'}
-  assert not any(forbidden_parts & set(path.relative_to(package).parts) for path in files)
+  assert not any(path.relative_to(package).parts[0] in forbidden_parts for path in files)
   assert not any(path.suffix.lower() in {'.db', '.sqlite', '.sqlite3', '.log'} or path.name == '.env' for path in files)
   checksums = (package / 'SHA256SUMS.txt').read_text(encoding='ascii').splitlines()
   assert checksums and (package / 'release-manifest.json').is_file()

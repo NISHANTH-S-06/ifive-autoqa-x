@@ -19,7 +19,8 @@ import type { SystemHealth } from '../types/system';
 import { 
   CheckCircle2, XCircle, AlertTriangle, Clock, Layers, 
   ShieldCheck, Activity, Cpu, Server, HardDrive, RefreshCw,
-  TrendingUp, BarChart3, PieChart
+  TrendingUp, BarChart3, PieChart, FileCheck2, Monitor, Bot,
+  GitBranch, ArrowRight, Zap
 } from 'lucide-react';
 
 const containerVariants = {
@@ -173,6 +174,73 @@ export function DashboardPage() {
         <motion.div whileHover={{ y: -3, scale: 1.01 }} transition={{ duration: 0.2 }}>
           <StatCard title="Authorized Targets" value={readiness?.real_target_authorized ? 'YES' : 'YES'} subtitle="Readiness verified" icon={CheckCircle2} variant="info" loading={loading} />
         </motion.div>
+      </motion.div>
+
+      {/* Quick Launchpad for Key AI & Testing Tools */}
+      <motion.div style={{ marginBottom: '1.5rem' }} variants={itemVariants}>
+        <div className="card" style={{ background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.05), rgba(14, 165, 233, 0.05))', border: '1px solid rgba(37, 99, 235, 0.15)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Zap size={18} style={{ color: 'var(--color-primary)' }} />
+              <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-main)', margin: 0 }}>Engineering & AI Launchpad</h3>
+            </div>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Direct Access to Integrated QA Suites</span>
+          </div>
+
+          <div className="grid grid-cols-4">
+            <div className="card" style={{ padding: '1rem', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.5rem' }}>
+                <div style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', background: 'rgba(37, 99, 235, 0.1)', color: '#2563eb' }}>
+                  <FileCheck2 size={20} />
+                </div>
+                <div>
+                  <h4 style={{ fontSize: '0.9rem', fontWeight: 600, margin: 0 }}>Zero-Code Studio</h4>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Visual Test Recorder</span>
+                </div>
+              </div>
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.75rem', lineHeight: 1.3 }}>Record web actions, clicks, inputs & assertions visually without writing code.</p>
+            </div>
+
+            <div className="card" style={{ padding: '1rem', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.5rem' }}>
+                <div style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }}>
+                  <Monitor size={20} />
+                </div>
+                <div>
+                  <h4 style={{ fontSize: '0.9rem', fontWeight: 600, margin: 0 }}>Visual Regression</h4>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>UI Snapshot Compare</span>
+                </div>
+              </div>
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.75rem', lineHeight: 1.3 }}>Pixel-perfect UI layout baseline comparison with automated diff highlight.</p>
+            </div>
+
+            <div className="card" style={{ padding: '1rem', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.5rem' }}>
+                <div style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', background: 'rgba(139, 92, 246, 0.1)', color: '#8b5cf6' }}>
+                  <Bot size={20} />
+                </div>
+                <div>
+                  <h4 style={{ fontSize: '0.9rem', fontWeight: 600, margin: 0 }}>Enterprise AI Copilot</h4>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>QA Assistant</span>
+                </div>
+              </div>
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.75rem', lineHeight: 1.3 }}>Natural language AI assistant for test strategy generation & root-cause analysis.</p>
+            </div>
+
+            <div className="card" style={{ padding: '1rem', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.5rem' }}>
+                <div style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b' }}>
+                  <GitBranch size={20} />
+                </div>
+                <div>
+                  <h4 style={{ fontSize: '0.9rem', fontWeight: 600, margin: 0 }}>Release Command</h4>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>War Room & Gate</span>
+                </div>
+              </div>
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.75rem', lineHeight: 1.3 }}>Multi-project release readiness score, approval gatekeeper & war room status.</p>
+            </div>
+          </div>
+        </div>
       </motion.div>
 
       {/* Execution Trend & Readiness Summary */}

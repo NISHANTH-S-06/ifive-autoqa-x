@@ -1,0 +1,7 @@
+"""Version 2.0 System Constants."""
+PLATFORM_NAME = "iFive AutoQA X Enterprise AI Engineering Platform"
+V2_VERSION = "2.0"
+PHASE_MARKER = "17.1"
+DEFAULT_TIMEOUT_SECONDS = 30
+DEFAULT_MAX_RETRIES = 3
+DEFAULT_VECTOR_DIMENSION = 1536

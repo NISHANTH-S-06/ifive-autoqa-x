@@ -11,6 +11,7 @@ Implements `ResultAggregator` for combining multi-layered validator outputs.
 
 - **Status Precedence Matrix**:  
   `BLOCKED` > `FAIL` > `PASS_WITH_WARNINGS` > `PASS`
+
 - **Result Hashes**: Computes SHA-256 cryptographic result signatures for tamper-proof validation audit trails.
 - **Defect Deduplication**: Fingerprints failures based on `(project_id, source_task_id, plan_version, validator_type, reason_code)` to suppress duplicate defect creation.
 
@@ -35,6 +36,7 @@ Implements `LocalScheduleService` for cron execution management.
 ---
 
 ## Verification Commands
+
 ```powershell
 cd d:\AUTO_QA_TESTING\backend
 .\.venv\Scripts\pytest tests/test_phase6_advanced_validation.py -k "test_result_aggregator or test_local_schedule or test_advanced_report" -v

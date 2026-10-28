@@ -133,3 +133,23 @@ export async function getTaskHistory(taskId: number): Promise<HistoryRecord[]> {
 export async function getDashboardSummary(): Promise<DashboardSummary> {
   return request<DashboardSummary>('GET', '/dashboard/summary');
 }
+
+// ── Delete ──
+export async function deleteTask(taskId: number): Promise<void> {
+  const token = getToken();
+  const res = await fetch(`${BASE}/tasks/${taskId}`, {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+  if (!res.ok && res.status !== 204) {
+    let detail = `HTTP ${res.status}`;
+    try {
+      const err = await res.json();
+      detail = err.detail ?? JSON.stringify(err);
+    } catch { /* ignore */ }
+    throw new Error(detail);
+  }
+}

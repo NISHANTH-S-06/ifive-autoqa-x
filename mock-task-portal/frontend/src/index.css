@@ -241,6 +241,11 @@ a:hover {
   border-color: var(--danger);
 }
 
+.btn-danger:hover:not(:disabled) {
+  background: #dc2626;
+  border-color: #dc2626;
+}
+
 .btn-success {
   background: var(--success);
   color: #fff;

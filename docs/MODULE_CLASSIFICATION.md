@@ -7,7 +7,7 @@ Built on top of `BACKEND_INVENTORY.md` (frontend literal-call detection) plus ad
 **Not performed this pass** (stated honestly, not claimed): true live-traffic / runtime request capture. This would require adding temporary request-logging middleware to the running server and manually exercising every one of the 82 ACTIVE frontend pages end-to-end, then reviewing the access log — a much larger, separate exercise. Everything below is still static analysis, just a deeper static sweep than the previous pass.
 
 | Router | Classification | Evidence |
-|---|---|---|
+| --- | --- | --- |
 | health | TEST_ONLY | Referenced in backend tests: ['backend\\tests\\test_health.py', 'backend\\tests\\test_phase12_zero_code_ecosystem.py', 'backend\\tests\\test_phase13_enterprise_cloud.py', 'backend\\tests\\test_phase6_advanced_validation.py', 'backend\\tests\\test_project_isolation.py', 'backend\\tests\\test_stage14_release.py', 'backend\\tests\\test_stage9_connection_targets.py'] |
 | auth | ACTIVE | Frontend literal-string call matched (see BACKEND_INVENTORY.md) |
 | operators | ACTIVE | Frontend literal-string call matched (see BACKEND_INVENTORY.md) |
@@ -102,7 +102,7 @@ Built on top of `BACKEND_INVENTORY.md` (frontend literal-call detection) plus ad
 ## Summary
 
 | Classification | Count |
-|---|---|
+| --- | --- |
 | TEST_ONLY | 31 |
 | ACTIVE | 16 |
 | UNKNOWN | 40 |
