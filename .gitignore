@@ -48,8 +48,8 @@ qa/reports/
 !qa/tests/reports/**
 test-results/
 playwright-report/
-runtime/
-release/
+/runtime/
+/release/
 !qa/tests/release/
 !qa/tests/release/**
 
@@ -76,3 +76,8 @@ backend/data/
 Thumbs.db
 .idea/
 .vscode/
+
+# local-only
+trace_unzip/
+archive/
+*.bak*
