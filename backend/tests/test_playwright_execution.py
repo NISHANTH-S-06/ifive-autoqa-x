@@ -51,7 +51,10 @@ def test_real_playwright_fixture_actions_and_screenshot(auth_client, db):
     assert executed.status_code == 200 and executed.json()['status'] == 'PASSED'
     steps = auth_client.get(f'/api/automated-runs/{run_id}/steps', headers=headers).json()
     assert [step['status'] for step in steps] == ['PASSED'] * 6
-    artifact = db.query(ExecutionArtifact).filter_by(run_id=run_id, artifact_type='SCREENSHOT').one()
+    # runner auto-captures evidence after every step; expect at least one SCREENSHOT artifact
+    artifacts = db.query(ExecutionArtifact).filter_by(run_id=run_id, artifact_type='SCREENSHOT').order_by(ExecutionArtifact.id).all()
+    assert len(artifacts) >= 1
+    artifact = artifacts[-1]
     width, height = _png_dimensions(Path(artifact_path(artifact)).read_bytes())
     assert width > 1 and height > 1
   finally:
