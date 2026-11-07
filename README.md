@@ -1,33 +1,62 @@
-# iFive AutoQA
+# iFive AutoQA X — Local-first QA Automation Platform
 
-iFive AutoQA is a free, local-first AI-assisted quality engineering platform for testing iFive ERP, HRMS, CRM, IIoT, and Application Integration products.
+[![ci](https://github.com/NISHANTH-S-06/ifive-autoqa-x/actions/workflows/ci.yml/badge.svg)](https://github.com/NISHANTH-S-06/ifive-autoqa-x/actions/workflows/ci.yml)
 
-The platform combines deterministic Playwright execution with reviewable local AI assistance. AI may help plan, generate, and repair tests, but pass or fail decisions must come from explicit Playwright assertions and human-approved QA rules.
+A local, safety-first platform for managing and running automated tests against **approved non-production** web applications (built for iFive's ERP, HRMS, CRM, IIoT and integration products). Test decisions come from deterministic Playwright assertions; AI is limited to reviewable assistance (planning/generation), never to deciding pass or fail.
 
-## Stack
+> Built during my AI Developer & Designer internship. Sample apps in this repo (`mock-task-portal`, `demo-product`) are synthetic; no real client data or credentials are included.
 
-- Frontend: React, Vite, TypeScript
-- Backend: FastAPI, Python
-- Database: SQLite first, PostgreSQL later if required
-- Testing: Playwright Test, TypeScript
-- Local AI: design material only; no AI runtime or model is installed or included in the Stage 14 release
-- Browser automation: Playwright MCP
-- Reports: Playwright HTML reports, traces, screenshots, videos, console logs, and network logs
+## Key features
+- **Test management**: projects, modules, suites, cases with ordered steps, tags, immutable version snapshots, DRAFT → IN_REVIEW → APPROVED workflow
+- **Controlled execution**: queued runs need an explicit approval phrase; one run at a time with timeouts; artifacts (screenshots, traces, logs) isolated per run
+- **Security model**: VIEWER / TESTER / APPROVER / ADMIN operators, no default credentials, creators cannot approve their own runs, CSRF protection, SHA-256 audit chain
+- **Safety guard**: approved target registry only; no production, payment, payroll or destructive actions
+- **Traceability**: run results, failure evidence and defect links in one place
 
-## Repository Layout
+## Architecture
+```mermaid
+flowchart LR
+  UI[React + Vite dashboard] --> API[FastAPI backend]
+  API --> DB[(SQLite)]
+  API --> G[Safety guard + RBAC + audit chain]
+  G --> W[Execution worker]
+  W --> PW[Playwright runner - qa/]
+  PW --> T[Approved non-prod target]
+  PW --> A[Screenshots / traces / logs]
+  A --> API
+```
 
-- `frontend/` - React dashboard and marketing experience.
-- `backend/` - FastAPI service, repositories, safety guard, and reporting APIs.
-- `qa/` - Playwright test packs, page objects, fixtures, reports, and agent prompts.
-- `local-ai/` - Ollama setup notes, local model config, and agent prompt templates.
-- `scripts/` - Local setup and run scripts.
-- `docs/` - Installation, workflow, API, safety, and demo documentation.
+## Tech stack
+React · Vite · TypeScript · FastAPI · SQLAlchemy · Alembic · SQLite · Playwright · pytest · PowerShell scripts for local lifecycle
 
-## Safety Position
+## Quick start (Windows)
+```powershell
+cd backend
+python -m venv .venv ; .\.venv\Scripts\pip install -r requirements.txt
+cd ..\qa ; npm ci ; npx playwright install chromium
+cd ..\frontend ; npm ci
+# lifecycle scripts: scripts\run_migrations.ps1, scripts\start_local_system.ps1,
+#                    scripts\verify_health.ps1, scripts\stop_local_system.ps1
+```
+Create the first operator explicitly with `scripts\create_local_operator.ps1` (there are no default credentials). Ports are listed in `PORTS.md`.
 
-AutoQA is intended for QA and sandbox environments. It must not execute production destructive actions, payments, payroll, approvals, record deletion, or IIoT machine-control operations.
+## Tests
+```bash
+cd backend && pytest -q                      # full suite (needs qa/ npm deps + Playwright browsers)
+cd mock-task-portal/backend && pytest -q     # 23 tests
+cd demo-product/backend && pytest -q         # 21 tests
+```
+CI runs the backend core suite (156 tests) and both sample apps on every push; the Playwright end-to-end job is informational.
 
-## Current State: Stage 14 Local Release Readiness
+## Documentation
+`ARCHITECTURE.md` · `SAFETY_RULES.md` · `TEST_STRATEGY.md` · `ROADMAP.md` · `docs/`
+
+## Repository layout
+`backend/` FastAPI service · `frontend/` React dashboard · `qa/` Playwright runner and packs · `mock-task-portal/`, `demo-product/` sample targets · `scripts/` local lifecycle · `docs/` documentation · `local-ai/` design notes only (no AI runtime is bundled)
+
+## Release history and stage notes
+
+### Current State: Stage 14 Local Release Readiness
 
 Stages 1-14 provide the local FastAPI/React/SQLite platform, test management, approved non-production target registry, controlled local execution, defect traceability, management reports, and hardened local release operations. Production execution remains blocked. Real target execution remains disabled by default and requires separate authorization after target and execution approval.
 
